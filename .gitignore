@@ -1,0 +1,41 @@
+# Git ignore root — Study Agent
+
+# --- Environment / secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python (backend) ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Node / Next.js (frontend) ---
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Build / dist ---
+dist/
+build/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+
+# --- Generated export samples ---
+backend/scripts/output/
