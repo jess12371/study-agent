@@ -1,4 +1,7 @@
 # Service F-08 — Export study plan ke PDF (reportlab) dan iCalendar (icalendar).
+# Library berat (reportlab/icalendar) di-import lazy agar startup app cepat.
+
+from __future__ import annotations
 
 import logging
 import uuid
@@ -6,20 +9,6 @@ from datetime import date, datetime, time, timedelta, timezone
 from io import BytesIO
 
 from fastapi import HTTPException, status
-from icalendar import Calendar, Event
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import mm
-from reportlab.platypus import (
-    ListFlowable,
-    ListItem,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
-)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -45,7 +34,10 @@ def _get_owned_plan(db: Session, user_id: uuid.UUID, plan_id: uuid.UUID) -> Stud
 # ---------------------------------------------------------------- PDF
 
 
-def _styles() -> dict[str, ParagraphStyle]:
+def _styles() -> dict[str, "ParagraphStyle"]:
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+
     base = getSampleStyleSheet()
     return {
         "title": ParagraphStyle(
@@ -77,6 +69,10 @@ def _styles() -> dict[str, ParagraphStyle]:
 
 def _footer(canvas, doc) -> None:
     # Footer sederhana di tiap halaman.
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+
     canvas.saveState()
     canvas.setFont("Helvetica", 8)
     canvas.setFillColor(colors.HexColor("#9ca3af"))
@@ -87,6 +83,19 @@ def _footer(canvas, doc) -> None:
 
 def export_plan_to_pdf(user_id: uuid.UUID, plan_id: uuid.UUID) -> bytes:
     # Bangun PDF A4 print-friendly dari plan_data.
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.platypus import (
+        ListFlowable,
+        ListItem,
+        Paragraph,
+        SimpleDocTemplate,
+        Spacer,
+        Table,
+        TableStyle,
+    )
+
     with SessionLocal() as db:
         plan = _get_owned_plan(db, user_id, plan_id)
         data = plan.plan_data or {}
@@ -245,6 +254,8 @@ def _parse_time(value: str | None) -> time:
 
 def export_plan_to_ics(user_id: uuid.UUID, plan_id: uuid.UUID) -> str:
     # Bangun kalender iCalendar; tiap sesi jadi satu VEVENT.
+    from icalendar import Calendar, Event
+
     with SessionLocal() as db:
         plan = _get_owned_plan(db, user_id, plan_id)
         data = plan.plan_data or {}

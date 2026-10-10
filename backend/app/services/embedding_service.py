@@ -1,10 +1,14 @@
 # Service embedding — sentence-transformers all-MiniLM-L6-v2 (384 dim, lokal/gratis).
+#
+# PENTING: sentence-transformers (torch) di-import LAZY di dalam fungsi, bukan di
+# top-level, agar startup aplikasi cepat (Railway/build tidak timeout).
 
 import logging
 from functools import lru_cache
+from typing import TYPE_CHECKING
 
-import numpy as np
-from sentence_transformers import SentenceTransformer
+if TYPE_CHECKING:  # pragma: no cover - hanya untuk type checker
+    from sentence_transformers import SentenceTransformer
 
 logger = logging.getLogger(__name__)
 
@@ -13,8 +17,10 @@ EMBEDDING_DIM = 384
 
 
 @lru_cache(maxsize=1)
-def _model() -> SentenceTransformer:
-    # Load model sekali saja (lazy singleton).
+def _model() -> "SentenceTransformer":
+    # Import berat dilakukan di sini (saat pertama dipakai), bukan saat app start.
+    from sentence_transformers import SentenceTransformer
+
     logger.info("Memuat model embedding %s ...", MODEL_NAME)
     return SentenceTransformer(MODEL_NAME)
 
@@ -33,6 +39,8 @@ def generate_embeddings(texts: list[str]) -> list[list[float]]:
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
     # Cosine similarity dua vektor.
+    import numpy as np
+
     va = np.asarray(a, dtype=float)
     vb = np.asarray(b, dtype=float)
     denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
