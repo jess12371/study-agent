@@ -1,0 +1,10 @@
+# Konfigurasi build Nixpacks (legacy). Railway kini memakai Railpack,
+# tapi file ini tetap berguna sebagai dokumentasi perintah build/start.
+[phases.setup]
+nixPkgs = ["python312"]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
