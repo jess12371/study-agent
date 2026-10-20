@@ -39,6 +39,12 @@ from app.schemas.resource import (
     ResourceResponse,
     ResourceSearchRequest,
 )
+from app.schemas.tutor import QuizQuestion, QuizResponse, TutorMessage, TutorRequest
+from app.schemas.quiz import (
+    QuizAttemptResponse,
+    QuizHistoryResponse,
+    QuizSubmitRequest,
+)
 
 __all__ = [
     # LLM
@@ -88,4 +94,13 @@ __all__ = [
     "ChatMessage",
     "ChatRequest",
     "ChatResponse",
+    # Tutor
+    "TutorMessage",
+    "TutorRequest",
+    "QuizQuestion",
+    "QuizResponse",
+    # Gamifikasi quiz
+    "QuizSubmitRequest",
+    "QuizAttemptResponse",
+    "QuizHistoryResponse",
 ]

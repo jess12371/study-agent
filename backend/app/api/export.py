@@ -46,3 +46,20 @@ async def export_plan_ics(
             "Content-Disposition": f'attachment; filename="study-plan-{plan_id}.ics"'
         },
     )
+
+
+@router.get("/{plan_id}/export-ics")
+async def export_plan_ics_alias(
+    plan_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+) -> Response:
+    # Alias endpoint sesuai spesifikasi: GET /api/plans/:id/export-ics.
+    logger.info("GET /api/plans/%s/export-ics user_id=%s", plan_id, current_user.id)
+    data = export_service.export_plan_to_ics(current_user.id, plan_id)
+    return Response(
+        content=data,
+        media_type="text/calendar; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="study-plan-{plan_id}.ics"'
+        },
+    )

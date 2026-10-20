@@ -45,3 +45,21 @@ async def get_current_user(
         raise _unauthorized("User not found or inactive.")
 
     return user
+
+
+async def get_current_user_optional(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    # Seperti get_current_user, tapi mengembalikan None (bukan 401) bila tidak ada token valid.
+    if credentials is None or not credentials.credentials:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        user_id = uuid.UUID(str(payload.get("sub")))
+    except (jwt.PyJWTError, ValueError, TypeError):
+        return None
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        return None
+    return user

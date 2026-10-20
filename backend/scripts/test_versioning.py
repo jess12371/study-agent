@@ -2,6 +2,7 @@
 # LLM di-monkeypatch agar test cepat & deterministik.
 # Jalankan dari folder backend/: python scripts/test_versioning.py
 
+import json
 import logging
 import sys
 import uuid
@@ -23,6 +24,24 @@ results: list[tuple[str, bool, str]] = []
 def check(name: str, condition: bool, detail: str = "") -> None:
     results.append((name, condition, detail))
     print(f"[{'PASS' if condition else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
+
+
+def parse_plan_sse(text: str) -> dict | None:
+    # Ambil frame {"type":"plan"} dari SSE response.
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data: "):
+            continue
+        payload = line[6:]
+        if payload == "[DONE]":
+            break
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "plan":
+            return event["plan"]
+    return None
 
 
 # --- Monkeypatch LLM plan generation (tidak memanggil DeepSeek) ---
@@ -47,6 +66,31 @@ async def fake_generate(request, extra_notes=None, *, reasoning_effort=None):
 
 
 plan_service.generate_plan_output = fake_generate  # type: ignore[assignment]
+
+
+async def fake_stream(prompt, system=None, **kwargs):
+    # /plans/generate sekarang SSE: tiru stream JSON plan lalu selesai.
+    payload = {
+        "goal_summary": "Test plan (fake)",
+        "total_weeks": 8,
+        "milestones": [
+            {"month": 1, "focus": "Basics", "target": "t", "checkpoint": "c"},
+        ],
+        "weekly_schedule": [
+            {
+                "week": 1,
+                "theme": "Setup",
+                "days": [
+                    {"day": "Monday", "date_offset": 0, "time": "19:00", "topic": "Intro", "duration_minutes": 60, "activities": ["a"], "resources": []},
+                ],
+            }
+        ],
+        "resources": [],
+    }
+    yield json.dumps(payload)
+
+
+plan_service.llm.chat_completion_stream = fake_stream  # type: ignore[assignment]
 
 
 GOAL_PAYLOAD = {
@@ -86,8 +130,10 @@ def main() -> None:
 
     # 1) Generate v1
     r1 = client.post("/api/plans/generate", json={"goal_id": goal_id, "feasibility_result": FEASIBILITY}, headers=auth)
-    v1 = r1.json()
+    v1 = parse_plan_sse(r1.text)
     check("generate -> 200", r1.status_code == 200, f"status={r1.status_code}")
+    check("stream mengirim plan final", v1 is not None)
+    v1 = v1 or {}
     check("v1 version=1", v1.get("version") == 1, f"version={v1.get('version')}")
     check("v1 reason=initial", v1.get("reason") == "initial")
     check("v1 status=active", v1.get("status") == "active")
@@ -100,8 +146,9 @@ def main() -> None:
 
     # 3) Regenerate -> v3 (bug lama: v3 jadi v1 & v2 hilang)
     r3 = client.post("/api/plans/generate", json={"goal_id": goal_id, "feasibility_result": FEASIBILITY}, headers=auth)
-    v3 = r3.json()
+    v3 = parse_plan_sse(r3.text)
     check("regenerate -> 200", r3.status_code == 200, f"status={r3.status_code}")
+    v3 = v3 or {}
     check("regenerate version=3 (bukan 1)", v3.get("version") == 3, f"version={v3.get('version')}")
     check("regenerate reason=regenerate", v3.get("reason") == "regenerate")
 

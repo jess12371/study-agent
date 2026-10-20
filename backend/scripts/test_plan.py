@@ -1,6 +1,7 @@
 # Script manual untuk menguji F-03 Study Plan Generator (dengan auth + goals).
 # Jalankan dari folder backend/: python scripts/test_plan.py
 
+import json
 import logging
 import sys
 import uuid
@@ -23,6 +24,24 @@ results: list[tuple[str, bool, str]] = []
 def check(name: str, condition: bool, detail: str = "") -> None:
     results.append((name, condition, detail))
     print(f"[{'PASS' if condition else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
+
+
+def parse_plan_sse(text: str) -> dict | None:
+    # Ambil frame {"type":"plan"} dari SSE response.
+    for line in text.splitlines():
+        line = line.strip()
+        if not line.startswith("data: "):
+            continue
+        payload = line[6:]
+        if payload == "[DONE]":
+            break
+        try:
+            event = json.loads(payload)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "plan":
+            return event["plan"]
+    return None
 
 
 def register(name: str) -> str:
@@ -74,8 +93,10 @@ def main() -> None:
             headers=auth(token_a),
         )
         check("POST /plans/generate -> 200", r.status_code == 200, f"status={r.status_code}")
-        if r.status_code == 200:
-            plan = r.json()
+        check("content-type text/event-stream", "text/event-stream" in r.headers.get("content-type", ""))
+        plan = parse_plan_sse(r.text) if r.status_code == 200 else None
+        check("stream mengirim frame plan final", plan is not None)
+        if plan:
             plan_id = plan["plan_id"]
             print("  plan_id:", plan_id)
             print("  goal_summary:", plan["goal_summary"][:200])

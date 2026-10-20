@@ -9,6 +9,8 @@ import { ErrorState } from "@/components/error-state";
 import { GoalCard } from "@/components/goal-card";
 import { Navbar } from "@/components/navbar";
 import { ProtectedRoute } from "@/components/protected-route";
+import { QuizStats } from "@/components/quiz-stats";
+import { TutorDrawer } from "@/components/tutor-drawer";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -115,7 +117,13 @@ function DashboardContent() {
           <h2 className="text-xl font-semibold">Your Goals</h2>
           <GoalsSection />
         </section>
+
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold">Your Quiz Stats</h2>
+          <QuizStats />
+        </section>
       </main>
+      <TutorDrawer />
     </div>
   );
 }

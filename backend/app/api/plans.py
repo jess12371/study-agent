@@ -47,25 +47,34 @@ async def _prepare_request(
     return request, goal.id
 
 
-@router.post("/generate", response_model=PlanResponse)
+@router.post("/generate")
 async def create_plan(
     payload: PlanGenerateRequest,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> PlanResponse:
-    # Generate plan (non-streaming) untuk goal milik user.
+) -> StreamingResponse:
+    # Generate plan sebagai SSE stream: status → delta teks real-time → plan final.
     logger.info("POST /api/plans/generate user_id=%s goal_id=%s", current_user.id, payload.goal_id)
     try:
         request, goal_id = await _prepare_request(payload, current_user, db)
-        return await generate_plan(request, user_id=current_user.id, goal_id=goal_id)
     except HTTPException:
         raise
     except Exception as exc:  # noqa: BLE001
-        logger.exception("Generate plan gagal")
+        logger.exception("Generate plan gagal (prepare)")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Plan generation failed due to an internal error.",
         ) from exc
+    return StreamingResponse(
+        generate_plan_stream(request, user_id=current_user.id, goal_id=goal_id),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            # Cegah buffering oleh proxy (mis. Nginx).
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.post("/generate/stream")

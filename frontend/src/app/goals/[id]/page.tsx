@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
+  CalendarPlus,
   Loader2,
   Sparkles,
   Wand2,
@@ -20,7 +21,7 @@ import { FeasibilityCard } from "@/components/feasibility-card";
 import { Navbar } from "@/components/navbar";
 import { PlanDisplay } from "@/components/plan-display";
 import { PlanHistory } from "@/components/plan-history";
-import { PlanProgress } from "@/components/plan-progress";
+import { PlanStreamPanel } from "@/components/plan-stream-panel";
 import { ProgressStatsCard } from "@/components/progress-stats";
 import { ResourceRecommendations } from "@/components/resource-recommendations";
 import { ProtectedRoute } from "@/components/protected-route";
@@ -34,10 +35,24 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOnline } from "@/hooks/use-online";
 import {
+  cacheGoal,
+  cachePlan,
+  cacheProgress,
+  enqueueProgress,
+  getCachedGoal,
+  getCachedPlan,
+  getCachedProgress,
+} from "@/lib/offline-db";
+import { flushProgressQueue, requestBackgroundSync } from "@/lib/offline-sync";
+import { downloadBlob } from "@/lib/download";
+import {
+  exportApi,
   feasibilityApi,
   getErrorMessage,
   goalsApi,
+  isNetworkError,
   plansApi,
   progressApi,
   progressSessionKey,
@@ -48,6 +63,7 @@ import {
   type PlanResponse,
   type PlanVersion,
   type ProgressEntry,
+  type ProgressMark,
   type ProgressStatus,
   type RescheduleResult,
 } from "@/lib/api";
@@ -65,6 +81,19 @@ function toFeasibilityRequest(goal: Goal): FeasibilityRequest {
     max_session_minutes: goal.max_session_minutes || 60,
     unavailable_days: goal.unavailable_days || [],
   };
+}
+
+function mapProgressEntries(
+  entries: ProgressEntry[]
+): Record<string, ProgressEntry> {
+  const map: Record<string, ProgressEntry> = {};
+  for (const entry of entries) {
+    if (entry.week_number == null || entry.day_name == null) continue;
+    map[
+      progressSessionKey(entry.week_number, entry.day_name, entry.session_index)
+    ] = entry;
+  }
+  return map;
 }
 
 function GoalDetail() {
@@ -88,6 +117,10 @@ function GoalDetail() {
   const [updatingProgress, setUpdatingProgress] = useState(false);
   const [history, setHistory] = useState<PlanVersion[]>([]);
   const [switchingVersion, setSwitchingVersion] = useState(false);
+  const online = useOnline();
+  const [streamStatus, setStreamStatus] = useState("Starting...");
+  const [streamText, setStreamText] = useState("");
+  const [exportingIcs, setExportingIcs] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -103,16 +136,29 @@ function GoalDetail() {
     try {
       const data = await goalsApi.get(goalId);
       setGoal(data);
+      await cacheGoal(goalId, data);
       // Muat plan terbaru kalau sudah ada, supaya refresh tidak kehilangan plan.
       try {
         const existingPlan = await plansApi.getByGoal(goalId);
         setPlan(existingPlan);
+        await cachePlan(goalId, existingPlan);
       } catch {
-        /* belum ada plan untuk goal ini */
+        const cachedPlan = await getCachedPlan(goalId);
+        if (cachedPlan) setPlan(cachedPlan);
       }
       loadHistory();
     } catch (err) {
-      setError(getErrorMessage(err));
+      // Offline: tampilkan data dari cache lokal.
+      const [cachedGoal, cachedPlan] = await Promise.all([
+        getCachedGoal(goalId),
+        getCachedPlan(goalId),
+      ]);
+      if (cachedGoal) {
+        setGoal(cachedGoal);
+        if (cachedPlan) setPlan(cachedPlan);
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setLoading(false);
     }
@@ -121,34 +167,37 @@ function GoalDetail() {
   useEffect(() => {
     loadGoal();
   }, [loadGoal]);
-  // Muat entry progres begitu plan tersedia.
+  // Muat entry progres begitu plan tersedia (fallback ke cache saat offline).
   useEffect(() => {
     if (!plan) return;
     let active = true;
     progressApi
       .list(plan.plan_id)
-      .then((entries) => {
+      .then(async (entries) => {
         if (!active) return;
-        const map: Record<string, ProgressEntry> = {};
-        for (const entry of entries) {
-          if (entry.week_number == null || entry.day_name == null) continue;
-          map[
-            progressSessionKey(
-              entry.week_number,
-              entry.day_name,
-              entry.session_index
-            )
-          ] = entry;
-        }
-        setProgressByKey(map);
+        setProgressByKey(mapProgressEntries(entries));
+        await cacheProgress(plan.plan_id, entries);
       })
-      .catch(() => {
-        /* biarkan kosong; error akan tampil saat mark */
+      .catch(async () => {
+        const cached = await getCachedProgress(plan.plan_id);
+        if (active && cached) setProgressByKey(mapProgressEntries(cached));
       });
     return () => {
       active = false;
     };
   }, [plan]);
+
+  // Saat kembali online: kirim antrean progres lalu refresh stats.
+  useEffect(() => {
+    if (!online) return;
+    let active = true;
+    flushProgressQueue().then(() => {
+      if (active) setStatsRefresh((n) => n + 1);
+    });
+    return () => {
+      active = false;
+    };
+  }, [online]);
 
   const runFeasibility = async () => {
     if (!goal) return;
@@ -166,20 +215,49 @@ function GoalDetail() {
 
   const generatePlan = async () => {
     setGenerating(true);
+    setStreamStatus("Starting...");
+    setStreamText("");
+    const holder: { plan: PlanResponse | null } = { plan: null };
     try {
-      const result = await plansApi.generate({
-        goal_id: goalId,
-        feasibility_result: feasibility ?? undefined,
-      });
-      setPlan(result);
-      setProgressByKey({});
-      setStatsRefresh((n) => n + 1);
-      await loadHistory();
-      toast.success("Study plan generated!");
+      await plansApi.generateStream(
+        { goal_id: goalId, feasibility_result: feasibility ?? undefined },
+        {
+          onStatus: (stage) => setStreamStatus(stage),
+          onDelta: (content) => setStreamText((prev) => prev + content),
+          onPlan: (created) => {
+            holder.plan = created;
+          },
+        }
+      );
+      if (holder.plan) {
+        setPlan(holder.plan);
+        setProgressByKey({});
+        setStatsRefresh((n) => n + 1);
+        await cachePlan(goalId, holder.plan);
+        await loadHistory();
+        toast.success("Study plan generated!");
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setGenerating(false);
+      setStreamText("");
+    }
+  };
+
+  const handleAddToCalendar = async () => {
+    if (!plan) return;
+    setExportingIcs(true);
+    try {
+      const blob = await exportApi.icsAlias(plan.plan_id);
+      downloadBlob(blob, `study-plan-${plan.plan_id}.ics`);
+      toast.success(
+        "Calendar file downloaded. Import it into Google Calendar."
+      );
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExportingIcs(false);
     }
   };
 
@@ -211,29 +289,53 @@ function GoalDetail() {
       completed_at:
         status === "completed" ? new Date().toISOString() : null,
     };
-    setProgressByKey((map) => ({ ...map, [key]: optimistic }));
+    const nextMap = { ...progressByKey, [key]: optimistic };
+    setProgressByKey(nextMap);
     setUpdatingProgress(true);
 
+    const payload: ProgressMark = {
+      week_number: weekNumber,
+      day_name: session.day,
+      session_index: sessionIndex,
+      status,
+      actual_duration:
+        status === "completed" ? session.duration_minutes : undefined,
+    };
+
+    const queueOffline = async () => {
+      await enqueueProgress(plan.plan_id, payload);
+      await cacheProgress(plan.plan_id, Object.values(nextMap));
+      await requestBackgroundSync();
+      toast.info("Saved offline — will sync when you're back online.");
+    };
+
+    // Offline: simpan ke IndexedDB dan antrekan untuk Background Sync.
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await queueOffline();
+      setUpdatingProgress(false);
+      return;
+    }
+
     try {
-      const saved = await progressApi.mark(plan.plan_id, {
-        week_number: weekNumber,
-        day_name: session.day,
-        session_index: sessionIndex,
-        status,
-        actual_duration:
-          status === "completed" ? session.duration_minutes : undefined,
-      });
-      setProgressByKey((map) => ({ ...map, [key]: saved }));
+      const saved = await progressApi.mark(plan.plan_id, payload);
+      const savedMap = { ...nextMap, [key]: saved };
+      setProgressByKey(savedMap);
+      await cacheProgress(plan.plan_id, Object.values(savedMap));
       setStatsRefresh((n) => n + 1);
     } catch (err) {
-      // Rollback kalau gagal.
-      setProgressByKey((map) => {
-        const next = { ...map };
-        if (previous) next[key] = previous;
-        else delete next[key];
-        return next;
-      });
-      toast.error(getErrorMessage(err));
+      if (isNetworkError(err)) {
+        // Koneksi putus di tengah jalan → queue, jangan rollback.
+        await queueOffline();
+      } else {
+        // Rollback kalau gagal karena alasan lain (validasi/server).
+        setProgressByKey((map) => {
+          const next = { ...map };
+          if (previous) next[key] = previous;
+          else delete next[key];
+          return next;
+        });
+        toast.error(getErrorMessage(err));
+      }
     } finally {
       setUpdatingProgress(false);
     }
@@ -295,6 +397,13 @@ function GoalDetail() {
           Back to dashboard
         </Link>
       </Button>
+
+      {!online && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
+          <span className="font-medium">You&apos;re offline.</span> Showing cached
+          data. Progress changes are saved locally and will sync automatically.
+        </div>
+      )}
 
       {/* Goal info */}
       <Card>
@@ -423,7 +532,23 @@ function GoalDetail() {
               )}
               {plan ? "Regenerate Plan" : "Generate Plan"}
             </Button>
-            {plan && <ExportMenu planId={plan.plan_id} />}
+            {plan && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleAddToCalendar}
+                  disabled={exportingIcs}
+                >
+                  {exportingIcs ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CalendarPlus className="h-4 w-4" />
+                  )}
+                  Add to Calendar
+                </Button>
+                <ExportMenu planId={plan.plan_id} />
+              </>
+            )}
           </div>
         </div>
 
@@ -433,7 +558,9 @@ function GoalDetail() {
           </p>
         )}
 
-        {generating && <PlanProgress active />}
+        {generating && (
+          <PlanStreamPanel status={streamStatus} text={streamText} />
+        )}
 
         {plan && !generating ? (
           <PlanDisplay

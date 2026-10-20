@@ -2,6 +2,7 @@
 # Membuat study plan (milestones + jadwal mingguan + resources) memakai LLM,
 # lalu menyimpannya ke tabel `study_plans` (kolom plan_data JSONB).
 
+import json
 import logging
 import uuid
 from collections.abc import AsyncIterator
@@ -352,11 +353,19 @@ def _sse_frame(text: str) -> str:
     return "".join(f"data: {line}\n" for line in lines) + "\n"
 
 
+def _sse_json(payload: dict) -> str:
+    # Satu frame SSE berisi JSON (status / delta / plan / error).
+    return f"data: {json.dumps(payload)}\n\n"
+
+
 async def generate_plan_stream(
     request: PlanRequest, user_id: uuid.UUID, goal_id: uuid.UUID
 ) -> AsyncIterator[str]:
-    # Mode streaming: kirim chunk sebagai SSE, lalu simpan plan setelah stream selesai.
-    # Ownership sudah diverifikasi di endpoint (agar error 404 bisa dikembalikan sebelum stream).
+    # Mode streaming terstruktur:
+    #   {"type":"status"}  → tahapan progres
+    #   {"type":"delta"}   → potongan teks dari LLM (real-time)
+    #   {"type":"plan"}    → plan final (JSON lengkap)
+    #   {"type":"error"}   → error yang tidak memutus koneksi
     logger.info(
         "Generate plan (stream): user_id=%s goal_id=%s topic=%r",
         user_id,
@@ -364,7 +373,17 @@ async def generate_plan_stream(
         request.goal.topic,
     )
 
+    yield _sse_json({"type": "status", "stage": "Analyzing your goal..."})
+
     buffer: list[str] = []
+    chars = 0
+    emitted = 0
+    stages = [
+        (1800, "Designing milestones..."),
+        (4000, "Building weekly schedule..."),
+        (7000, "Selecting resources..."),
+    ]
+
     async for chunk in llm.chat_completion_stream(
         _build_user_prompt(request),
         system=_build_system_prompt(),
@@ -374,7 +393,11 @@ async def generate_plan_stream(
         thinking=True,
     ):
         buffer.append(chunk)
-        yield _sse_frame(chunk)
+        chars += len(chunk)
+        while emitted < len(stages) and chars >= stages[emitted][0]:
+            yield _sse_json({"type": "status", "stage": stages[emitted][1]})
+            emitted += 1
+        yield _sse_json({"type": "delta", "content": chunk})
 
     content = "".join(buffer)
     try:
@@ -388,7 +411,7 @@ async def generate_plan_stream(
             version = 1
             supersede_plan_id = None
             reason = "initial"
-        plan_id, _ = persist_plan(
+        plan_id, created_at = persist_plan(
             output,
             user_id,
             goal_id,
@@ -396,12 +419,21 @@ async def generate_plan_stream(
             supersede_plan_id=supersede_plan_id,
             reason=reason,
         )
+        plan = _to_response(
+            output,
+            plan_id=plan_id,
+            created_at=created_at,
+            version=version,
+            status="active",
+            reason=reason,
+        )
         logger.info("Plan (stream) selesai & disimpan: plan_id=%s version=%d", plan_id, version)
+        yield _sse_json({"type": "plan", "plan": plan.model_dump(mode="json")})
     except Exception as exc:  # noqa: BLE001 - laporkan ke client via SSE, jangan putus koneksi
         logger.exception("Finalisasi plan (stream) gagal")
-        yield _sse_frame(f"[ERROR] {exc}")
+        yield _sse_json({"type": "error", "message": str(exc)})
 
-    yield _sse_frame("[DONE]")
+    yield "data: [DONE]\n\n"
 
 
 def get_plan(plan_id: uuid.UUID, user_id: uuid.UUID) -> PlanResponse | None:

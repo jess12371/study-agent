@@ -96,3 +96,16 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// Background Sync: minta semua tab membuka & mengirim antrean progres offline.
+self.addEventListener("sync", (event) => {
+  if (event.tag === "sync-progress") {
+    event.waitUntil(
+      self.clients
+        .matchAll({ type: "window", includeUncontrolled: true })
+        .then((clients) => {
+          clients.forEach((client) => client.postMessage({ type: "flush-progress" }));
+        })
+    );
+  }
+});

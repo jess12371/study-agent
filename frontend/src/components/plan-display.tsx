@@ -82,6 +82,7 @@ export function PlanDisplay({
             progress={progress}
             onMark={onMark}
             updating={updating}
+            planId={plan.plan_id}
           />
         </section>
       )}

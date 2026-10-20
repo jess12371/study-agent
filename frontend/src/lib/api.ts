@@ -265,6 +265,42 @@ export function getErrorMessage(error: unknown): string {
   return "Something went wrong.";
 }
 
+// True kalau error karena jaringan/offline (bukan validasi server).
+export function isNetworkError(error: unknown): boolean {
+  if (axios.isAxiosError(error)) {
+    return error.code === "ERR_NETWORK" || error.response === undefined;
+  }
+  return error instanceof TypeError; // fetch gagal (offline)
+}
+
+// Baca SSE dari ReadableStream dan panggil onEvent untuk setiap payload `data:`.
+async function consumeSse(
+  response: Response,
+  onEvent: (payload: string) => void
+): Promise<void> {
+  if (!response.body) throw new Error("Streaming is not supported.");
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const dataLines = part
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).replace(/^ /, ""));
+      if (dataLines.length === 0) continue;
+      const payload = dataLines.join("\n");
+      if (payload === "[DONE]") return;
+      onEvent(payload);
+    }
+  }
+}
+
 // --- Endpoints ---
 export const authApi = {
   signup: async (data: { email: string; password: string; name?: string }) =>
@@ -306,6 +342,53 @@ export const plansApi = {
     ).data,
   history: async (goalId: string) =>
     (await api.get<PlanVersion[]>(`/api/plans/by-goal/${goalId}/history`)).data,
+  // Streaming generation: status → delta teks → plan final.
+  generateStream: async (
+    data: { goal_id: string; feasibility_result?: FeasibilityResponse },
+    handlers: {
+      onStatus?: (stage: string) => void;
+      onDelta?: (content: string) => void;
+      onPlan?: (plan: PlanResponse) => void;
+      onError?: (message: string) => void;
+    }
+  ): Promise<void> => {
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : null;
+    const response = await fetch(`${API_URL}/api/plans/generate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      throw new Error(`Plan generation failed (${response.status}).`);
+    }
+    let failure: string | null = null;
+    await consumeSse(response, (payload) => {
+      let event: {
+        type?: string;
+        stage?: string;
+        content?: string;
+        plan?: PlanResponse;
+        message?: string;
+      };
+      try {
+        event = JSON.parse(payload);
+      } catch {
+        return;
+      }
+      if (event.type === "status" && event.stage) handlers.onStatus?.(event.stage);
+      else if (event.type === "delta" && event.content) handlers.onDelta?.(event.content);
+      else if (event.type === "plan" && event.plan) handlers.onPlan?.(event.plan);
+      else if (event.type === "error") {
+        failure = event.message ?? "Plan generation failed.";
+        handlers.onError?.(failure);
+      }
+    });
+    if (failure) throw new Error(failure);
+  },
 };
 
 export const progressApi = {
@@ -330,6 +413,13 @@ export const exportApi = {
   ics: async (planId: string): Promise<Blob> =>
     (
       await api.get<Blob>(`/api/plans/${planId}/export/ics`, {
+        responseType: "blob",
+      })
+    ).data,
+  // Alias sesuai spesifikasi: /api/plans/:id/export-ics
+  icsAlias: async (planId: string): Promise<Blob> =>
+    (
+      await api.get<Blob>(`/api/plans/${planId}/export-ics`, {
         responseType: "blob",
       })
     ).data,
@@ -463,4 +553,96 @@ export const chatApi = {
       }
     }
   },
+};
+
+export interface TutorMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correct_index: number;
+  explanation: string;
+}
+
+export interface QuizResponse {
+  topic: string;
+  questions: QuizQuestion[];
+}
+
+export const tutorApi = {
+  // Tanya tutor (streaming SSE, reasoning low).
+  stream: async (
+    payload: {
+      topic: string;
+      question: string;
+      history?: TutorMessage[];
+      language?: string;
+    },
+    handlers: { onDelta: (content: string) => void; onDone?: () => void }
+  ): Promise<void> => {
+    const response = await fetch(`${API_URL}/api/tutor/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      throw new Error(`Tutor request failed (${response.status}).`);
+    }
+    await consumeSse(response, (frame) => {
+      let event: { type?: string; content?: string };
+      try {
+        event = JSON.parse(frame);
+      } catch {
+        return;
+      }
+      if (event.type === "delta" && event.content) {
+        handlers.onDelta(event.content);
+      }
+    });
+    handlers.onDone?.();
+  },
+  // Quiz dari jadwal (JSON, butuh auth).
+  quiz: async (planId: string, weekNumber: number, dayName: string) =>
+    (
+      await api.post<QuizResponse>("/api/tutor/chat", {
+        mode: "quiz_from_schedule",
+        plan_id: planId,
+        week_number: weekNumber,
+        day_name: dayName,
+      })
+    ).data,
+};
+
+export interface QuizAttempt {
+  id: string;
+  plan_id: string;
+  week_number: number;
+  day_name: string;
+  score: number;
+  total_questions: number;
+  created_at: string;
+  goal_topic: string | null;
+}
+
+export interface QuizHistory {
+  attempts: QuizAttempt[];
+  total_quizzes: number;
+  average_score: number;
+  best_score: number;
+}
+
+export const quizApi = {
+  // Simpan hasil quiz setelah user selesai menjawab.
+  submit: async (data: {
+    plan_id: string;
+    week_number: number;
+    day_name: string;
+    score: number;
+    total_questions: number;
+  }) => (await api.post<QuizAttempt>("/api/quizzes/submit", data)).data,
+  // Riwayat + statistik quiz user.
+  history: async () => (await api.get<QuizHistory>("/api/quizzes/history")).data,
 };

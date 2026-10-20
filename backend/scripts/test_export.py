@@ -107,6 +107,11 @@ def main() -> None:
     check("VEVENT punya SUMMARY sesi", "[Study] Install Python" in text)
     check("VEVENT punya DTSTART", "DTSTART" in text)
 
+    # Alias endpoint sesuai spesifikasi: /export-ics
+    ics_alias = client.get(f"/api/plans/{plan_id}/export-ics", headers=auth)
+    check("GET export-ics (alias) -> 200", ics_alias.status_code == 200, f"status={ics_alias.status_code}")
+    check("alias mengembalikan iCalendar", "BEGIN:VCALENDAR" in ics_alias.text)
+
     # --- Error handling ---
     other = client.post("/api/auth/signup", json={"email": f"other+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
     r_other = client.get(f"/api/plans/{plan_id}/export/pdf", headers={"Authorization": f"Bearer {other}"})

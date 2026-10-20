@@ -5,7 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import auth, chat, export, feasibility, goals, plans, progress, reschedule, resources
+from app.api import auth, chat, export, feasibility, goals, plans, progress, quizzes, reschedule, resources, tutor
 from app.core.config import settings
 
 # Inisialisasi aplikasi FastAPI (async).
@@ -30,7 +30,12 @@ async def validation_exception_handler(
     request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     # Request body tidak valid → 400 (bukan default 422).
-    return JSONResponse(status_code=400, content={"detail": exc.errors()})
+    # Ambil field yang aman diserialisasi (ctx bisa berisi objek Exception).
+    detail = [
+        {"loc": error.get("loc"), "msg": error.get("msg"), "type": error.get("type")}
+        for error in exc.errors()
+    ]
+    return JSONResponse(status_code=400, content={"detail": detail})
 
 
 @app.get("/api/health")
@@ -49,3 +54,5 @@ app.include_router(export.router)
 app.include_router(reschedule.router)
 app.include_router(resources.router)
 app.include_router(chat.router)
+app.include_router(tutor.router)
+app.include_router(quizzes.router)
