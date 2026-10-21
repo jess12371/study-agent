@@ -1,0 +1,9 @@
+# Full local install — termasuk model embedding lokal (sentence-transformers/torch).
+# JANGAN dipakai di Vercel: bundle melebihi batas 500 MB.
+#
+#   pip install -r requirements-full.txt
+#
+-r requirements-vercel.txt
+
+# Resource recommendation (F-06) — embeddings lokal (384 dim)
+sentence-transformers>=2.2,<7.0

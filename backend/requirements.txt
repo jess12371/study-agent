@@ -1,32 +1,9 @@
-# Dependencies backend Study Agent (FastAPI, Python 3.11+)
-
-# Web framework + server
-fastapi>=0.111,<1.0
-uvicorn[standard]>=0.30,<1.0
-
-# LLM client (DeepSeek kompatibel dengan OpenAI SDK)
-openai>=1.30,<2.0
-
-# Validasi data & settings
-pydantic>=2.7,<3.0
-pydantic-settings>=2.3,<3.0
-python-dotenv>=1.0,<2.0
-email-validator>=2.1,<3.0
-
-# Auth (F-09)
-pyjwt>=2.8,<3.0
-bcrypt>=4.1,<6.0
-
-# Database + migration
-sqlalchemy>=2.0,<3.0
-psycopg2-binary>=2.9,<3.0
-alembic>=1.13,<2.0
-pgvector>=0.2,<1.0
-
-# Export (F-08)
-reportlab>=4.0,<6.0
-icalendar>=5.0,<8.0
-
-# Resource recommendation (F-06) — embeddings lokal (384 dim)
-sentence-transformers>=2.2,<7.0
-numpy>=1.26,<3.0
+# Default install (ringan, kompatibel Vercel Functions).
+#
+# Vercel otomatis meng-install file ini sebagai dependency service backend.
+# Untuk development lokal dengan fitur penuh (F-06 semantic search memakai
+# sentence-transformers/torch), gunakan:
+#
+#   pip install -r requirements-full.txt
+#
+-r requirements-vercel.txt

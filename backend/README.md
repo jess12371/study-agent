@@ -33,7 +33,10 @@ python -m venv .venv
 # source .venv/bin/activate
 
 # 3. Install dependencies
-pip install -r requirements.txt
+#    Full lokal (F-06 semantic dengan sentence-transformers):
+pip install -r requirements-full.txt
+#    Atau versi ringan (kompatibel Vercel, tanpa torch):
+# pip install -r requirements.txt
 
 # 4. Siapkan environment
 copy .env.example .env   # Windows
