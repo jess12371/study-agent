@@ -1,0 +1,12 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "installCommand": "pip install -r requirements-vercel.txt",
+  "functions": {
+    "main.py": {
+      "maxDuration": 300,
+      "memory": 1024,
+      "excludeFiles": "{__pycache__/**,scripts/**,*.md,tests/**}"
+    }
+  }
+}
