@@ -14,6 +14,7 @@ export interface User {
   email: string;
   name?: string | null;
   is_active: boolean;
+  is_verified?: boolean;
   created_at: string;
 }
 
@@ -65,6 +66,14 @@ export interface FeasibilityRequest {
   preferred_study_time: string;
   max_session_minutes: number;
   unavailable_days?: string[];
+  language?: "en" | "id" | "zh";
+}
+
+export interface RescopeSuggestion {
+  target: string;
+  deadline_months: number;
+  rationale: string;
+  changes: string[];
 }
 
 export interface FeasibilityResponse {
@@ -308,6 +317,10 @@ export const authApi = {
   login: async (data: { email: string; password: string }) =>
     (await api.post<TokenResponse>("/api/auth/login", data)).data,
   me: async () => (await api.get<User>("/api/auth/me")).data,
+  verifyOtp: async (email: string, otp: string) =>
+    (await api.post<TokenResponse>("/api/auth/verify-otp", { email, otp })).data,
+  resendOtp: async (email: string) =>
+    (await api.post<{ message: string }>("/api/auth/resend-otp", { email })).data,
 };
 
 export const goalsApi = {
@@ -325,6 +338,13 @@ export const goalsApi = {
 export const feasibilityApi = {
   check: async (data: FeasibilityRequest) =>
     (await api.post<FeasibilityResponse>("/api/feasibility/check", data)).data,
+  rescope: async (goal: FeasibilityRequest, feasibility: FeasibilityResponse) =>
+    (
+      await api.post<RescopeSuggestion>("/api/feasibility/rescope", {
+        goal,
+        feasibility,
+      })
+    ).data,
 };
 
 export const plansApi = {
@@ -342,9 +362,24 @@ export const plansApi = {
     ).data,
   history: async (goalId: string) =>
     (await api.get<PlanVersion[]>(`/api/plans/by-goal/${goalId}/history`)).data,
+  // Lazy generation: minta jadwal 4 minggu berikutnya.
+  generateNextMonth: async (
+    planId: string,
+    language: "en" | "id" | "zh" = "en"
+  ) =>
+    (
+      await api.post<PlanResponse>(
+        `/api/plans/${planId}/generate-next-month`,
+        { language }
+      )
+    ).data,
   // Streaming generation: status → delta teks → plan final.
   generateStream: async (
-    data: { goal_id: string; feasibility_result?: FeasibilityResponse },
+    data: {
+      goal_id: string;
+      feasibility_result?: FeasibilityResponse;
+      language?: "en" | "id" | "zh";
+    },
     handlers: {
       onStatus?: (stage: string) => void;
       onDelta?: (content: string) => void;

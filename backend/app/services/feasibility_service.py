@@ -8,7 +8,7 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
-from app.schemas.feasibility import FeasibilityRequest, FeasibilityResponse
+from app.schemas.feasibility import FeasibilityRequest, FeasibilityResponse, RescopeRequest, RescopeSuggestion
 from app.schemas.llm import LLMResponse
 from app.services import llm
 
@@ -28,11 +28,21 @@ RULES:
 1. Cite benchmark sources when estimating required hours
 2. If target unrealistic, provide 2-3 alternatives
 3. Output MUST be valid JSON matching the schema
-4. All text in English
+4. All text (analysis, recommendations, benchmark_source) MUST be written in __LANGUAGE__
 5. Be supportive but realistic — don't over-promise
 
 TONE: Supportive, realistic, motivating
 """
+
+LANGUAGE_NAMES = {"en": "English", "id": "Bahasa Indonesia", "zh": "Simplified Chinese (中文)"}
+
+
+def _language_name(code: str | None) -> str:
+    return LANGUAGE_NAMES.get((code or "en").lower(), "English")
+
+
+def _system_prompt(language: str | None = "en") -> str:
+    return SYSTEM_PROMPT.replace("__LANGUAGE__", _language_name(language))
 
 USER_PROMPT_TEMPLATE = """Analyze the feasibility of this learning goal.
 
@@ -117,7 +127,7 @@ async def _call_llm(request: FeasibilityRequest, available_hours: int) -> LLMRes
     try:
         llm_response = await llm.chat_completion_json(
             _build_user_prompt(request, available_hours),
-            system=SYSTEM_PROMPT,
+            system=_system_prompt(request.language),
             schema=_LLMFeasibilityOutput,
             temperature=0.7,
             max_tokens=FEASIBILITY_MAX_TOKENS,
@@ -221,3 +231,87 @@ async def check_feasibility(request: FeasibilityRequest) -> FeasibilityResponse:
     # API publik: hanya kembalikan FeasibilityResponse.
     response, _ = await check_feasibility_with_meta(request)
     return response
+
+
+# --- Re-scope goal (Tugas 1) ---
+
+RESCOPE_PROMPT = """The learner's goal is currently UNREALISTIC. Propose a realistic revised target and deadline.
+
+CURRENT GOAL:
+- Topic: {topic}
+- Current level: {current_level}
+- Target: {target}
+- Deadline: {deadline_months} months
+- Available study hours (precomputed): {available_hours}
+
+FEASIBILITY RESULT:
+- verdict: {verdict}
+- confidence: {confidence}
+- required_hours: {required_hours}
+- gap_hours: {gap_hours}
+- analysis: {analysis}
+- recommendations: {recommendations}
+
+INSTRUCTIONS:
+- Keep the same topic.
+- Increase "deadline_months" if necessary (must be >= current deadline and <= 120).
+- Adjust "target" to a realistic, achievable scope within that deadline.
+- Provide "rationale" and 2-4 concrete "changes".
+- All text in __LANGUAGE__.
+
+Respond ONLY with JSON:
+{{"target": "string", "deadline_months": 0, "rationale": "string", "changes": ["string"]}}"""
+
+
+class _LLMRescopeOutput(BaseModel):
+    target: str
+    deadline_months: int
+    rationale: str
+    changes: list[str] = Field(default_factory=list)
+
+
+async def rescope_goal(request: RescopeRequest) -> RescopeSuggestion:
+    # Minta AI menyesuaikan target & deadline agar realistis.
+    goal = request.goal
+    feasibility = request.feasibility
+    available_hours = compute_available_hours(goal)
+    prompt = RESCOPE_PROMPT
+    prompt = prompt.replace("__LANGUAGE__", _language_name(goal.language))
+    prompt = prompt.format(
+        topic=goal.topic,
+        current_level=goal.current_level,
+        target=goal.target,
+        deadline_months=goal.deadline_months,
+        available_hours=available_hours,
+        verdict=feasibility.verdict,
+        confidence=feasibility.confidence,
+        required_hours=feasibility.required_hours,
+        gap_hours=feasibility.gap_hours,
+        analysis=feasibility.analysis,
+        recommendations="; ".join(feasibility.recommendations) or "none",
+    )
+
+    logger.info("Rescope goal: topic=%r deadline=%d", goal.topic, goal.deadline_months)
+    response = await llm.chat_completion_json(
+        prompt,
+        system=_system_prompt(goal.language),
+        schema=_LLMRescopeOutput,
+        temperature=0.4,
+        max_tokens=2048,
+        reasoning_effort="medium",
+        thinking=True,
+    )
+    output = _LLMRescopeOutput.model_validate(response.data)
+
+    deadline = max(goal.deadline_months, min(output.deadline_months, 120))
+    target = output.target.strip() or goal.target
+    changes = [change.strip() for change in output.changes if change.strip()]
+    if not changes:
+        changes = [f"Deadline adjusted to {deadline} months."]
+
+    return RescopeSuggestion(
+        target=target,
+        deadline_months=deadline,
+        rationale=output.rationale.strip(),
+        changes=changes,
+    )

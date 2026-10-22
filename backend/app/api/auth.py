@@ -8,8 +8,21 @@ from sqlalchemy.orm import Session
 from app.core.deps import get_current_user
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import TokenResponse, UserLogin, UserRegister, UserResponse
-from app.services.auth_service import authenticate_user, build_token_response, register_user
+from app.schemas.auth import (
+    ResendOtpRequest,
+    TokenResponse,
+    UserLogin,
+    UserRegister,
+    UserResponse,
+    VerifyOtpRequest,
+)
+from app.services.auth_service import (
+    authenticate_user,
+    build_token_response,
+    register_user,
+    resend_otp,
+    verify_otp,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -42,3 +55,23 @@ async def login(payload: UserLogin, db: Session = Depends(get_db)) -> TokenRespo
 async def read_current_user(current_user: User = Depends(get_current_user)) -> User:
     # Info user yang sedang login.
     return current_user
+
+
+@router.post("/verify-otp", response_model=TokenResponse)
+async def verify_email_otp(
+    payload: VerifyOtpRequest, db: Session = Depends(get_db)
+) -> TokenResponse:
+    # Verifikasi email dengan kode 6 digit (mock OTP di log backend).
+    logger.info("POST /api/auth/verify-otp")
+    user = verify_otp(db, payload.email, payload.otp)
+    return build_token_response(user)
+
+
+@router.post("/resend-otp")
+async def resend_email_otp(
+    payload: ResendOtpRequest, db: Session = Depends(get_db)
+) -> dict[str, str]:
+    # Kirim ulang OTP (mock: tercetak di log backend).
+    logger.info("POST /api/auth/resend-otp")
+    resend_otp(db, payload.email)
+    return {"message": "OTP sent. Check the backend logs (mock mode)."}

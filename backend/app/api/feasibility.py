@@ -4,8 +4,13 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from app.schemas.feasibility import FeasibilityRequest, FeasibilityResponse
-from app.services.feasibility_service import check_feasibility
+from app.schemas.feasibility import (
+    FeasibilityRequest,
+    FeasibilityResponse,
+    RescopeRequest,
+    RescopeSuggestion,
+)
+from app.services.feasibility_service import check_feasibility, rescope_goal
 
 logger = logging.getLogger(__name__)
 
@@ -24,4 +29,18 @@ async def check_goal_feasibility(payload: FeasibilityRequest) -> FeasibilityResp
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Feasibility check failed due to an internal error.",
+        ) from exc
+
+
+@router.post("/rescope", response_model=RescopeSuggestion)
+async def rescope_goal_analysis(payload: RescopeRequest) -> RescopeSuggestion:
+    # Sarankan target & deadline baru agar goal menjadi realistis.
+    logger.info("POST /api/feasibility/rescope topic=%r", payload.goal.topic)
+    try:
+        return await rescope_goal(payload)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Rescope gagal")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Re-scope failed due to an internal error.",
         ) from exc

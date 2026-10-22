@@ -93,7 +93,7 @@ def main() -> None:
     check("ada resource ter-seed untuk action", RESOURCE_ID is not None)
 
     email = f"chat+{uuid.uuid4().hex[:8]}@example.com"
-    token = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Chat Tester"}).json()["access_token"]
+    token = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Chat Tester"}).json()["access_token"]
     auth = {"Authorization": f"Bearer {token}"}
     user_id = client.get("/api/auth/me", headers=auth).json()["id"]
     goal = client.post("/api/goals", json=GOAL_PAYLOAD, headers=auth).json()
@@ -157,7 +157,7 @@ def main() -> None:
 
     # Ownership & auth
     check("chat tanpa token -> 401", client.get(f"/api/goals/{goal_id}/chat").status_code == 401)
-    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
+    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "Supersecret123"}).json()["access_token"]
     check("chat goal user lain -> 404", client.get(f"/api/goals/{goal_id}/chat", headers={"Authorization": f"Bearer {other}"}).status_code == 404)
 
     passed = sum(1 for _, ok, _ in results if ok)

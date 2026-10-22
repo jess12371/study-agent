@@ -9,13 +9,14 @@ from app.schemas.chat import (
     ChatRequest,
     ChatResponse,
 )
-from app.schemas.feasibility import FeasibilityRequest, FeasibilityResponse
+from app.schemas.feasibility import FeasibilityRequest, FeasibilityResponse, RescopeRequest, RescopeSuggestion
 from app.schemas.goal import GoalCreate, GoalResponse, GoalUpdate
 from app.schemas.llm import LLMRequest, LLMResponse, TokenUsage
 from app.schemas.plan import (
     DaySession,
     Milestone,
     PlanGenerateRequest,
+    PlanNextMonthRequest,
     PlanRequest,
     PlanResponse,
     PlanVersion,
@@ -54,9 +55,12 @@ __all__ = [
     # Feasibility (F-02)
     "FeasibilityRequest",
     "FeasibilityResponse",
+    "RescopeRequest",
+    "RescopeSuggestion",
     # Plan (F-03)
     "PlanRequest",
     "PlanGenerateRequest",
+    "PlanNextMonthRequest",
     "PlanResponse",
     "PlanVersion",
     "Milestone",

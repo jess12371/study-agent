@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { GraduationCap, LayoutDashboard, LogOut } from "lucide-react";
+import { GraduationCap, Globe, LayoutDashboard, LogOut } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -15,9 +15,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useLanguage, type Language } from "@/lib/language-context";
+
+const LANGUAGES: { code: Language; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "id", label: "Bahasa Indonesia" },
+  { code: "zh", label: "中文" },
+];
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
+  const { language, setLanguage } = useLanguage();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -35,7 +43,32 @@ export function Navbar() {
           <span>Study Agent</span>
         </Link>
 
-        {isAuthenticated ? (
+        <div className="flex items-center gap-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" aria-label="Language">
+                <Globe className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Language</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {LANGUAGES.map((item) => (
+                <DropdownMenuItem
+                  key={item.code}
+                  className="cursor-pointer"
+                  onClick={() => setLanguage(item.code)}
+                >
+                  {item.label}
+                  {language === item.code && (
+                    <span className="ml-auto text-xs">✓</span>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {isAuthenticated ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-9 gap-2 px-2">
@@ -81,6 +114,7 @@ export function Navbar() {
             </Button>
           </div>
         )}
+        </div>
       </div>
     </header>
   );

@@ -40,7 +40,7 @@ GOAL_PAYLOAD = {
 
 def main() -> None:
     email = f"gamify+{uuid.uuid4().hex[:8]}@example.com"
-    token = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Gamify Tester"}).json()["access_token"]
+    token = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Gamify Tester"}).json()["access_token"]
     auth = {"Authorization": f"Bearer {token}"}
     user_id = client.get("/api/auth/me", headers=auth).json()["id"]
     goal = client.post("/api/goals", json=GOAL_PAYLOAD, headers=auth).json()
@@ -96,7 +96,7 @@ def main() -> None:
     check("score > total -> 400", bad.status_code == 400, f"status={bad.status_code}")
 
     # Ownership
-    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
+    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "Supersecret123"}).json()["access_token"]
     other_auth = {"Authorization": f"Bearer {other}"}
     r_other = client.post(
         "/api/quizzes/submit",

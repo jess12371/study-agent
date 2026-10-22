@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.schemas.plan import (
     PlanGenerateRequest,
+    PlanNextMonthRequest,
     PlanRequest,
     PlanResponse,
     PlanVersion,
@@ -20,6 +21,7 @@ from app.services import goal_service
 from app.services.feasibility_service import check_feasibility
 from app.services.plan_service import (
     build_feasibility_request,
+    generate_next_month,
     generate_plan,
     generate_plan_stream,
     get_latest_plan_for_goal,
@@ -39,11 +41,15 @@ async def _prepare_request(
     # Ambil goal dari DB (verify ownership, 404 kalau bukan milik user) dan
     # siapkan PlanRequest. Feasibility dijalankan bila client tidak mengirimnya.
     goal = goal_service.get_goal(db, user.id, payload.goal_id)
-    feasibility_request = build_feasibility_request(goal)
+    feasibility_request = build_feasibility_request(goal, payload.language)
     feasibility_result = payload.feasibility_result or await check_feasibility(
         feasibility_request
     )
-    request = PlanRequest(goal=feasibility_request, feasibility_result=feasibility_result)
+    request = PlanRequest(
+        goal=feasibility_request,
+        feasibility_result=feasibility_result,
+        language=payload.language,
+    )
     return request, goal.id
 
 
@@ -97,6 +103,31 @@ async def create_plan_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/{plan_id}/generate-next-month", response_model=PlanResponse)
+async def create_next_month(
+    plan_id: uuid.UUID,
+    payload: PlanNextMonthRequest | None = None,
+    current_user: User = Depends(get_current_user),
+) -> PlanResponse:
+    # Lazy generation: buat jadwal 4 minggu berikutnya.
+    language = payload.language if payload else "en"
+    logger.info(
+        "POST /api/plans/%s/generate-next-month user_id=%s",
+        plan_id,
+        current_user.id,
+    )
+    try:
+        return await generate_next_month(current_user.id, plan_id, language)
+    except HTTPException:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Generate next month gagal")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Next month generation failed due to an internal error.",
+        ) from exc
 
 
 @router.get("/by-goal/{goal_id}/history", response_model=list[PlanVersion])

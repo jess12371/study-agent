@@ -30,7 +30,7 @@ class Settings(BaseSettings):
 
     # --- Performance tuning (F-03 plan generation / F-05 reschedule apply) ---
     # Detail mingguan dibatasi agar output lebih pendek (minggu lain ikut tema milestone).
-    plan_detailed_weeks: int = 2
+    plan_detailed_weeks: int = 4
     plan_max_tokens: int = 16384
     # Plan generation berbasis pola → reasoning "medium" cukup dan jauh lebih cepat.
     plan_reasoning_effort: str = "medium"

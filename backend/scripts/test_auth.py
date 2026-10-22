@@ -27,7 +27,7 @@ def check(name: str, condition: bool, detail: str = "") -> None:
 
 def main() -> None:
     email = f"auth+{uuid.uuid4().hex[:8]}@example.com"
-    password = "supersecret123"
+    password = "Supersecret123"
 
     # 1. Signup sukses
     r = client.post("/api/auth/signup", json={"email": email, "password": password, "name": "Auth Tester"})

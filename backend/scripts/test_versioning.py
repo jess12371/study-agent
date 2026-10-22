@@ -121,7 +121,7 @@ FEASIBILITY = {
 
 def main() -> None:
     email = f"version+{uuid.uuid4().hex[:8]}@example.com"
-    signup = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Version Tester"})
+    signup = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Version Tester"})
     token = signup.json()["access_token"]
     auth = {"Authorization": f"Bearer {token}"}
 

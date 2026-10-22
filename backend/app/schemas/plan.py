@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -56,6 +57,7 @@ class PlanRequest(BaseModel):
     # Input internal untuk generate plan (dibangun server dari goal di DB).
     goal: FeasibilityRequest
     feasibility_result: FeasibilityResponse
+    language: Literal["en", "id", "zh"] = "en"
 
 
 class PlanGenerateRequest(BaseModel):
@@ -63,6 +65,12 @@ class PlanGenerateRequest(BaseModel):
     goal_id: uuid.UUID
     # Opsional: kalau tidak dikirim, server menjalankan feasibility check sendiri.
     feasibility_result: FeasibilityResponse | None = None
+    language: Literal["en", "id", "zh"] = "en"
+
+
+class PlanNextMonthRequest(BaseModel):
+    # Body untuk generate jadwal bulan berikutnya.
+    language: Literal["en", "id", "zh"] = "en"
 
 
 class PlanResponse(BaseModel):

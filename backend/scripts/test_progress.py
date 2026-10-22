@@ -65,7 +65,7 @@ PLAN_DATA = {
 
 def main() -> None:
     email = f"progress+{uuid.uuid4().hex[:8]}@example.com"
-    signup = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Progress Tester"})
+    signup = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Progress Tester"})
     assert signup.status_code == 201, signup.text
     token = signup.json()["access_token"]
     user_id = signup.json()["user"]["id"]
@@ -127,7 +127,7 @@ def main() -> None:
     check("longest_streak tetap 2", stats2["longest_streak"] == 2)
 
     # Ownership: user lain tidak bisa akses.
-    other = client.post("/api/auth/signup", json={"email": f"other+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
+    other = client.post("/api/auth/signup", json={"email": f"other+{uuid.uuid4().hex[:8]}@example.com", "password": "Supersecret123"}).json()["access_token"]
     r3 = client.get(f"/api/plans/{plan_id}/progress", headers={"Authorization": f"Bearer {other}"})
     check("user lain GET progress -> 404", r3.status_code == 404, f"status={r3.status_code}")
 

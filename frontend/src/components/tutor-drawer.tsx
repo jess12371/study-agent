@@ -17,9 +17,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getErrorMessage, tutorApi, type TutorMessage } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
 export function TutorDrawer() {
+  const { language } = useLanguage();
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("General");
   const [input, setInput] = useState("");
@@ -44,7 +46,7 @@ export function TutorDrawer() {
     let acc = "";
     try {
       await tutorApi.stream(
-        { topic: topic.trim() || "General", question, history },
+        { topic: topic.trim() || "General", question, history, language },
         {
           onDelta: (chunk) => {
             acc += chunk;

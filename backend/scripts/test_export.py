@@ -70,7 +70,7 @@ PLAN_DATA = {
 
 def main() -> None:
     email = f"export+{uuid.uuid4().hex[:8]}@example.com"
-    signup = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Export Tester"})
+    signup = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Export Tester"})
     assert signup.status_code == 201, signup.text
     token = signup.json()["access_token"]
     user_id = signup.json()["user"]["id"]
@@ -113,7 +113,7 @@ def main() -> None:
     check("alias mengembalikan iCalendar", "BEGIN:VCALENDAR" in ics_alias.text)
 
     # --- Error handling ---
-    other = client.post("/api/auth/signup", json={"email": f"other+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
+    other = client.post("/api/auth/signup", json={"email": f"other+{uuid.uuid4().hex[:8]}@example.com", "password": "Supersecret123"}).json()["access_token"]
     r_other = client.get(f"/api/plans/{plan_id}/export/pdf", headers={"Authorization": f"Bearer {other}"})
     check("user lain export -> 404", r_other.status_code == 404, f"status={r_other.status_code}")
     r_missing = client.get(f"/api/plans/{uuid.uuid4()}/export/pdf", headers=auth)

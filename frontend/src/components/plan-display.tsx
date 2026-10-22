@@ -24,6 +24,9 @@ export function PlanDisplay({
   progress,
   onMark,
   updating,
+  totalWeeks,
+  onGenerateNextMonth,
+  generatingNext,
 }: {
   plan: PlanResponse;
   progress?: Record<string, ProgressEntry>;
@@ -34,6 +37,9 @@ export function PlanDisplay({
     status: ProgressStatus
   ) => void;
   updating?: boolean;
+  totalWeeks?: number;
+  onGenerateNextMonth?: () => void;
+  generatingNext?: boolean;
 }) {
   return (
     <div className="space-y-8">
@@ -83,6 +89,9 @@ export function PlanDisplay({
             onMark={onMark}
             updating={updating}
             planId={plan.plan_id}
+            totalWeeks={totalWeeks ?? plan.total_weeks}
+            onGenerateNextMonth={onGenerateNextMonth}
+            generatingNext={generatingNext}
           />
         </section>
       )}

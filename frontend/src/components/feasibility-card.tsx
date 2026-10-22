@@ -1,7 +1,8 @@
 // Card hasil Feasibility Check (F-02).
-import { AlertTriangle, CheckCircle2, Info, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Info, Loader2, RefreshCw, XCircle } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
@@ -31,8 +32,12 @@ const VERDICT_STYLES: Record<
 
 export function FeasibilityCard({
   feasibility,
+  onRescope,
+  rescoping,
 }: {
   feasibility: FeasibilityResponse;
+  onRescope?: () => void;
+  rescoping?: boolean;
 }) {
   const style = VERDICT_STYLES[feasibility.verdict];
   const Icon = style.icon;
@@ -116,6 +121,23 @@ export function FeasibilityCard({
             </Badge>
           )}
         </div>
+
+        {!feasibility.feasible && onRescope && (
+          <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <p className="text-sm text-muted-foreground">
+              This target is not realistic with your current deadline. Let the AI
+              propose a realistic target and deadline, then re-run the check.
+            </p>
+            <Button onClick={onRescope} disabled={rescoping} className="w-full">
+              {rescoping ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Re-scope Goal &amp; Deadline
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

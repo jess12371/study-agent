@@ -38,7 +38,9 @@ PLAN_MAX_TOKENS = settings.plan_max_tokens
 # reasoning_effort plan generation (medium sudah cukup untuk output pola).
 PLAN_REASONING_EFFORT = settings.plan_reasoning_effort
 
-SYSTEM_PROMPT = """You are Study Agent, an expert learning plan designer. Always respond in English."""
+SYSTEM_PROMPT = """You are Study Agent, an expert learning plan designer. Always respond in __LANGUAGE__."""
+
+LANGUAGE_NAMES = {"en": "English", "id": "Bahasa Indonesia", "zh": "Simplified Chinese (中文)"}
 
 # --- Context caching: bagian STATIC ditaruh di system message (prefix stabil),
 # bagian VARIABLE (goal + feasibility) ditaruh di user message. ---
@@ -52,7 +54,7 @@ INSTRUCTIONS_TEMPLATE = """INSTRUCTIONS:
 6. Create weekly schedule respecting work hours.
 7. Keep every text field CONCISE: goal_summary and checkpoint under 25 words,
    activities 2-3 short bullets per session, and at most 1-2 resources per session.
-8. Do not add extra top-level keys. All text in English. Respond ONLY with a JSON object.
+8. Do not add extra top-level keys. All text in __LANGUAGE__. Respond ONLY with a JSON object.
 
 Respond ONLY with a JSON object matching exactly this structure:
 {
@@ -112,11 +114,13 @@ class _LLMPlanOutput(BaseModel):
     resources: list[Resource]
 
 
-def _build_system_prompt() -> str:
+def _build_system_prompt(language: str = "en") -> str:
     # System message = static (persona + instructions + JSON schema) → prefix stabil
-    # untuk context caching.
+    # untuk context caching; bahasa output disuntikkan dari pilihan user.
     instructions = INSTRUCTIONS_TEMPLATE.replace("__DETAILED_WEEKS__", str(DETAILED_WEEKS))
-    return f"{SYSTEM_PROMPT}\n\n{instructions}"
+    language_name = LANGUAGE_NAMES.get((language or "en").lower(), "English")
+    text = f"{SYSTEM_PROMPT}\n\n{instructions}"
+    return text.replace("__LANGUAGE__", language_name)
 
 
 def _build_user_prompt(request: PlanRequest, extra_notes: str | None = None) -> str:
@@ -201,7 +205,7 @@ async def generate_plan_output(
     # Panggil LLM untuk menghasilkan output plan (dipakai juga oleh reschedule).
     llm_response = await llm.chat_completion_json(
         _build_user_prompt(request, extra_notes),
-        system=_build_system_prompt(),
+        system=_build_system_prompt(request.language),
         schema=_LLMPlanOutput,
         temperature=0.7,
         max_tokens=PLAN_MAX_TOKENS,
@@ -230,7 +234,7 @@ def verify_goal_ownership(user_id: uuid.UUID, goal_id: uuid.UUID) -> Goal:
         return goal
 
 
-def build_feasibility_request(goal: Goal) -> FeasibilityRequest:
+def build_feasibility_request(goal: Goal, language: str = "en") -> FeasibilityRequest:
     # Bangun FeasibilityRequest dari Goal yang tersimpan di DB.
     return FeasibilityRequest(
         topic=goal.topic,
@@ -247,6 +251,7 @@ def build_feasibility_request(goal: Goal) -> FeasibilityRequest:
         preferred_study_time=goal.preferred_study_time or "evening",
         max_session_minutes=goal.max_session_minutes or 60,
         unavailable_days=goal.unavailable_days or [],
+        language=language if language in {"en", "id", "zh"} else "en",
     )
 
 
@@ -386,7 +391,7 @@ async def generate_plan_stream(
 
     async for chunk in llm.chat_completion_stream(
         _build_user_prompt(request),
-        system=_build_system_prompt(),
+        system=_build_system_prompt(request.language),
         temperature=0.7,
         max_tokens=PLAN_MAX_TOKENS,
         reasoning_effort=PLAN_REASONING_EFFORT,
@@ -434,6 +439,176 @@ async def generate_plan_stream(
         yield _sse_json({"type": "error", "message": str(exc)})
 
     yield "data: [DONE]\n\n"
+
+
+class _LLMNextMonthOutput(BaseModel):
+    # Output AI untuk penjadwalan bulan berikutnya.
+    weeks: list[WeekSchedule]
+
+
+NEXT_MONTH_PROMPT = """You are extending an existing study plan. Generate ONLY the next block of weeks.
+
+GOAL: {topic}
+TARGET: {target}
+DEADLINE: {deadline_months} months (total {total_weeks} weeks)
+MILESTONE — Month {month}:
+- focus: {focus}
+- target: {milestone_target}
+- checkpoint: {checkpoint}
+PREVIOUS WEEKS:
+{previous_weeks}
+
+TASK:
+- Generate a detailed day-by-day schedule for weeks {start}-{end} (exactly {count} weeks).
+- Continue the week numbering from {start}.
+- Continue "date_offset" starting at {next_offset} (days from plan start).
+- Respect the user's work hours ({work_hours_start}-{work_hours_end}), available days, preferred study time ({preferred_study_time}), and max session ({max_session_minutes} minutes).
+- Align topics with the milestone above.
+- Keep each field concise; all text in {language}.
+
+Respond ONLY with JSON:
+{{"weeks": [{{"week": {start}, "theme": "string", "days": [{{"day": "Monday", "date_offset": {next_offset}, "time": "19:00", "topic": "string", "duration_minutes": 60, "activities": ["string"], "resources": [{{"type": "website", "name": "string", "url": "https://...", "for_skill": "string"}}]}}]}}]}}"""
+
+
+async def generate_next_month(
+    user_id: uuid.UUID, plan_id: uuid.UUID, language: str = "en"
+) -> PlanResponse:
+    # Lazy generation: buat jadwal 4 minggu berikutnya lalu append ke plan_data.
+    with SessionLocal() as db:
+        plan = db.scalar(
+            select(StudyPlan).where(
+                StudyPlan.id == plan_id, StudyPlan.user_id == user_id
+            )
+        )
+        if plan is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found."
+            )
+        goal = db.get(Goal, plan.goal_id)
+        data = dict(plan.plan_data or {})
+
+    weeks = list(data.get("weekly_schedule") or [])
+    if not weeks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This plan has no weekly schedule yet.",
+        )
+
+    total_weeks = int(data.get("total_weeks") or 0)
+    last_week = max(int(week.get("week") or 0) for week in weeks)
+    start = last_week + 1
+    if total_weeks and start > total_weeks:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="All weeks are already scheduled.",
+        )
+    end = min(start + 3, total_weeks) if total_weeks else start + 3
+    count = end - start + 1
+    month = ((start - 1) // 4) + 1
+
+    milestones = data.get("milestones") or []
+    milestone = next(
+        (item for item in milestones if item.get("month") == month), None
+    ) or {}
+    next_offset = (
+        max(
+            (
+                int(day.get("date_offset") or 0)
+                for week in weeks
+                for day in week.get("days", [])
+            ),
+            default=-1,
+        )
+        + 1
+    )
+    previous_weeks = "\n".join(
+        f"Week {week.get('week')}: {week.get('theme')}" for week in weeks[-4:]
+    )
+
+    language_name = LANGUAGE_NAMES.get((language or "en").lower(), "English")
+    prompt = NEXT_MONTH_PROMPT.format(
+        topic=goal.topic if goal else "—",
+        target=(goal.target if goal else None) or "—",
+        deadline_months=(goal.deadline_months if goal else None) or "?",
+        total_weeks=total_weeks or "?",
+        month=month,
+        focus=milestone.get("focus", "—"),
+        milestone_target=milestone.get("target", "—"),
+        checkpoint=milestone.get("checkpoint", "—"),
+        previous_weeks=previous_weeks or "(first month)",
+        start=start,
+        end=end,
+        count=count,
+        next_offset=next_offset,
+        work_hours_start=(
+            goal.work_hours_start.strftime("%H:%M") if goal and goal.work_hours_start else "09:00"
+        ),
+        work_hours_end=(
+            goal.work_hours_end.strftime("%H:%M") if goal and goal.work_hours_end else "18:00"
+        ),
+        preferred_study_time=(goal.preferred_study_time if goal else None) or "evening",
+        max_session_minutes=(goal.max_session_minutes if goal else None) or 60,
+        language=language_name,
+    )
+
+    logger.info(
+        "Generate next month: plan_id=%s weeks=%d-%d language=%s",
+        plan_id,
+        start,
+        end,
+        language,
+    )
+    response = await llm.chat_completion_json(
+        prompt,
+        system=(
+            "You are Study Agent, an expert learning plan designer. "
+            f"Always respond in {language_name}. "
+            'Output JSON only, matching exactly: {"weeks": [ ... ]}.'
+        ),
+        schema=_LLMNextMonthOutput,
+        temperature=0.7,
+        max_tokens=PLAN_MAX_TOKENS,
+        reasoning_effort=PLAN_REASONING_EFFORT,
+        thinking=True,
+    )
+    output = _LLMNextMonthOutput.model_validate(response.data)
+
+    existing_numbers = {int(week.get("week") or 0) for week in weeks}
+    new_weeks = [
+        week.model_dump(mode="json")
+        for week in output.weeks
+        if start <= week.week <= end and week.week not in existing_numbers
+    ]
+    if not new_weeks:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="AI did not return any new weeks.",
+        )
+
+    merged = sorted(weeks + new_weeks, key=lambda week: int(week.get("week") or 0))
+    data["weekly_schedule"] = merged
+
+    with SessionLocal() as db:
+        plan = db.get(StudyPlan, plan_id)
+        if plan is None or plan.user_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found."
+            )
+        plan.plan_data = data
+        db.commit()
+
+    logger.info(
+        "Next month ditambahkan: plan_id=%s new_weeks=%d total=%d",
+        plan_id,
+        len(new_weeks),
+        len(merged),
+    )
+    updated = get_plan(plan_id, user_id)
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Plan not found."
+        )
+    return updated
 
 
 def get_plan(plan_id: uuid.UUID, user_id: uuid.UUID) -> PlanResponse | None:

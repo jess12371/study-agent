@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, Timer } from "lucide-react";
+import { CalendarPlus, Clock, Loader2, Timer } from "lucide-react";
 
 import { FocusMode } from "@/components/focus-mode";
 import { QuizDialog } from "@/components/quiz-dialog";
@@ -31,6 +31,9 @@ export function WeekScheduleView({
   onMark,
   updating,
   planId,
+  totalWeeks,
+  onGenerateNextMonth,
+  generatingNext,
 }: {
   weeks: WeekSchedule[];
   progress?: Record<string, ProgressEntry>;
@@ -42,8 +45,20 @@ export function WeekScheduleView({
   ) => void;
   updating?: boolean;
   planId?: string;
+  totalWeeks?: number;
+  onGenerateNextMonth?: () => void;
+  generatingNext?: boolean;
 }) {
   const [focus, setFocus] = useState<FocusTarget | null>(null);
+
+  const lastWeek = weeks[weeks.length - 1];
+  const lastWeekTouched =
+    lastWeek?.days.some((session, index) => {
+      const key = progressSessionKey(lastWeek.week, session.day, index);
+      const status = progress?.[key]?.status;
+      return status === "completed" || status === "skipped";
+    }) ?? false;
+  const canGenerateNext = weeks.length % 4 === 0 && lastWeekTouched;
 
   if (weeks.length === 0) {
     return (
@@ -148,6 +163,38 @@ export function WeekScheduleView({
           </TabsContent>
         ))}
       </Tabs>
+
+      {typeof totalWeeks === "number" &&
+        totalWeeks > 0 &&
+        weeks.length < totalWeeks &&
+        weeks.length % 4 === 0 && (
+          <div className="mt-4 space-y-2 rounded-xl border border-dashed p-4 text-center">
+            {canGenerateNext ? (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  You&apos;ve reached the end of the scheduled month. Generate the
+                  next 4 weeks to keep going.
+                </p>
+                <Button
+                  onClick={onGenerateNextMonth}
+                  disabled={generatingNext}
+                >
+                  {generatingNext ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <CalendarPlus className="h-4 w-4" />
+                  )}
+                  Generate Next Month Schedule
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Complete a session in Week {lastWeek?.week} to unlock next
+                month&apos;s schedule.
+              </p>
+            )}
+          </div>
+        )}
 
       <FocusMode
         open={focus !== null}

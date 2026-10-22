@@ -116,7 +116,7 @@ def main() -> None:
     check("quiz tanpa auth -> 401", unauth.status_code == 401, f"status={unauth.status_code}")
 
     email = f"quiz+{uuid.uuid4().hex[:8]}@example.com"
-    token = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Quiz Tester"}).json()["access_token"]
+    token = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Quiz Tester"}).json()["access_token"]
     auth = {"Authorization": f"Bearer {token}"}
     user_id = client.get("/api/auth/me", headers=auth).json()["id"]
 

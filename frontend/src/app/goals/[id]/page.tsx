@@ -36,6 +36,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useOnline } from "@/hooks/use-online";
+import { useLanguage } from "@/lib/language-context";
 import {
   cacheGoal,
   cachePlan,
@@ -68,7 +69,10 @@ import {
   type RescheduleResult,
 } from "@/lib/api";
 
-function toFeasibilityRequest(goal: Goal): FeasibilityRequest {
+function toFeasibilityRequest(
+  goal: Goal,
+  language: "en" | "id" | "zh" = "en"
+): FeasibilityRequest {
   return {
     topic: goal.topic,
     current_level: goal.current_level || "unspecified",
@@ -80,6 +84,7 @@ function toFeasibilityRequest(goal: Goal): FeasibilityRequest {
     preferred_study_time: goal.preferred_study_time || "evening",
     max_session_minutes: goal.max_session_minutes || 60,
     unavailable_days: goal.unavailable_days || [],
+    language,
   };
 }
 
@@ -118,9 +123,12 @@ function GoalDetail() {
   const [history, setHistory] = useState<PlanVersion[]>([]);
   const [switchingVersion, setSwitchingVersion] = useState(false);
   const online = useOnline();
+  const { language } = useLanguage();
   const [streamStatus, setStreamStatus] = useState("Starting...");
   const [streamText, setStreamText] = useState("");
   const [exportingIcs, setExportingIcs] = useState(false);
+  const [rescoping, setRescoping] = useState(false);
+  const [generatingNext, setGeneratingNext] = useState(false);
 
   const loadHistory = useCallback(async () => {
     try {
@@ -199,13 +207,18 @@ function GoalDetail() {
     };
   }, [online]);
 
-  const runFeasibility = async () => {
-    if (!goal) return;
+  const runFeasibilityFor = async (targetGoal: Goal) => {
     setChecking(true);
     try {
-      const result = await feasibilityApi.check(toFeasibilityRequest(goal));
+      const result = await feasibilityApi.check(
+        toFeasibilityRequest(targetGoal, language)
+      );
       setFeasibility(result);
-      toast.success("Feasibility check complete.");
+      if (result.feasible) {
+        toast.success("Feasibility check complete.");
+      } else {
+        toast.warning("Target is not realistic yet. Try re-scoping.");
+      }
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -213,14 +226,47 @@ function GoalDetail() {
     }
   };
 
+  const runFeasibility = async () => {
+    if (!goal) return;
+    await runFeasibilityFor(goal);
+  };
+
+  const handleRescope = async () => {
+    if (!goal || !feasibility) return;
+    setRescoping(true);
+    try {
+      const suggestion = await feasibilityApi.rescope(
+        toFeasibilityRequest(goal, language),
+        feasibility
+      );
+      const updated = await goalsApi.update(goalId, {
+        target: suggestion.target,
+        deadline_months: suggestion.deadline_months,
+      });
+      setGoal(updated);
+      await cacheGoal(goalId, updated);
+      toast.success("Goal re-scoped. Re-running feasibility check...");
+      await runFeasibilityFor(updated);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setRescoping(false);
+    }
+  };
+
   const generatePlan = async () => {
+    if (feasibility && !feasibility.feasible) return;
     setGenerating(true);
     setStreamStatus("Starting...");
     setStreamText("");
     const holder: { plan: PlanResponse | null } = { plan: null };
     try {
       await plansApi.generateStream(
-        { goal_id: goalId, feasibility_result: feasibility ?? undefined },
+        {
+          goal_id: goalId,
+          feasibility_result: feasibility ?? undefined,
+          language,
+        },
         {
           onStatus: (stage) => setStreamStatus(stage),
           onDelta: (content) => setStreamText((prev) => prev + content),
@@ -242,6 +288,22 @@ function GoalDetail() {
     } finally {
       setGenerating(false);
       setStreamText("");
+    }
+  };
+
+  const handleGenerateNextMonth = async () => {
+    if (!plan) return;
+    setGeneratingNext(true);
+    try {
+      const updated = await plansApi.generateNextMonth(plan.plan_id, language);
+      setPlan(updated);
+      await cachePlan(goalId, updated);
+      setStatsRefresh((n) => n + 1);
+      toast.success("Next month schedule generated!");
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setGeneratingNext(false);
     }
   };
 
@@ -465,7 +527,11 @@ function GoalDetail() {
         </div>
 
         {feasibility ? (
-          <FeasibilityCard feasibility={feasibility} />
+          <FeasibilityCard
+            feasibility={feasibility}
+            onRescope={handleRescope}
+            rescoping={rescoping}
+          />
         ) : (
           <Card className="border-dashed">
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -518,11 +584,17 @@ function GoalDetail() {
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={generatePlan}
-              disabled={generating || (!feasibility && !plan)}
+              disabled={
+                generating ||
+                (!feasibility && !plan) ||
+                (feasibility !== null && !feasibility.feasible)
+              }
               title={
-                !feasibility && !plan
-                  ? "Run the feasibility check first"
-                  : undefined
+                feasibility && !feasibility.feasible
+                  ? "Re-scope the goal to make it realistic first"
+                  : !feasibility && !plan
+                    ? "Run the feasibility check first"
+                    : undefined
               }
             >
               {generating ? (
@@ -562,12 +634,22 @@ function GoalDetail() {
           <PlanStreamPanel status={streamStatus} text={streamText} />
         )}
 
+        {feasibility && !feasibility.feasible && (
+          <p className="text-sm text-destructive">
+            Generate Plan is disabled until the goal is realistic. Use
+            &quot;Re-scope Goal &amp; Deadline&quot; above.
+          </p>
+        )}
+
         {plan && !generating ? (
           <PlanDisplay
             plan={plan}
             progress={progressByKey}
             onMark={handleMark}
             updating={updatingProgress}
+            totalWeeks={plan.total_weeks}
+            onGenerateNextMonth={handleGenerateNextMonth}
+            generatingNext={generatingNext}
           />
         ) : (
           !generating &&

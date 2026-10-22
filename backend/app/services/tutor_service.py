@@ -32,6 +32,9 @@ RULES:
 7. Stay on the student's topic; politely redirect off-topic requests."""
 
 
+LANGUAGE_NAMES = {"en": "English", "id": "Bahasa Indonesia", "zh": "Simplified Chinese (中文)"}
+
+
 def _format_history(request: TutorRequest) -> str:
     if not request.history:
         return "(no previous messages)"
@@ -49,7 +52,9 @@ def _build_user_prompt(request: TutorRequest) -> str:
         f"STUDENT QUESTION: {request.question}",
     ]
     if request.language:
-        parts.append(f"Preferred language: {request.language}")
+        parts.append(
+            f"Preferred language: {LANGUAGE_NAMES.get(request.language, request.language)}"
+        )
     return "\n\n".join(parts)
 
 

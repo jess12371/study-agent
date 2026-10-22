@@ -72,7 +72,7 @@ def main() -> None:
 
     # Recommend untuk plan (auth)
     email = f"res+{uuid.uuid4().hex[:8]}@example.com"
-    token = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": "Res Tester"}).json()["access_token"]
+    token = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": "Res Tester"}).json()["access_token"]
     auth = {"Authorization": f"Bearer {token}"}
     goal = client.post("/api/goals", json=GOAL_PAYLOAD, headers=auth).json()
     # ambil user_id dari /me
@@ -108,7 +108,7 @@ def main() -> None:
 
     check("recommend tanpa token -> 401", client.get(f"/api/plans/{plan_id}/resources/recommend").status_code == 401)
 
-    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "supersecret123"}).json()["access_token"]
+    other = client.post("/api/auth/signup", json={"email": f"o+{uuid.uuid4().hex[:8]}@example.com", "password": "Supersecret123"}).json()["access_token"]
     r_other = client.get(f"/api/plans/{plan_id}/resources/recommend", headers={"Authorization": f"Bearer {other}"})
     check("recommend plan user lain -> 404", r_other.status_code == 404, f"status={r_other.status_code}")
 

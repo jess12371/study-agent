@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 
 import { PwaInstallPrompt } from "@/components/pwa-install-prompt";
 import { ServiceWorkerRegister } from "@/components/service-worker-register";
+import { LanguageProvider } from "@/lib/language-context";
 
 import "./globals.css";
 
@@ -41,10 +42,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
-        <Toaster richColors position="top-right" />
-        <ServiceWorkerRegister />
-        <PwaInstallPrompt />
+        <LanguageProvider>
+          {children}
+          <Toaster richColors position="top-right" />
+          <ServiceWorkerRegister />
+          <PwaInstallPrompt />
+        </LanguageProvider>
       </body>
     </html>
   );

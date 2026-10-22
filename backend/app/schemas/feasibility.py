@@ -22,6 +22,8 @@ class FeasibilityRequest(BaseModel):
     max_session_minutes: int = Field(gt=0, le=600)
     # Hari yang tidak bisa dipakai belajar (mis. libur/keluarga).
     unavailable_days: list[str] = Field(default_factory=list)
+    # Bahasa output AI: en / id / zh.
+    language: Literal["en", "id", "zh"] = "en"
 
     @field_validator("work_hours_start", "work_hours_end")
     @classmethod
@@ -34,7 +36,7 @@ class FeasibilityRequest(BaseModel):
 
 
 class FeasibilityResponse(BaseModel):
-    # Hasil analisis kelayakan. Semua teks dalam Bahasa Inggris.
+    # Hasil analisis kelayakan. Semua teks dalam bahasa yang diminta.
     feasible: bool
     confidence: float = Field(ge=0.0, le=1.0)
     required_hours: int = Field(ge=0)
@@ -62,3 +64,17 @@ class FeasibilityResponse(BaseModel):
         except (TypeError, ValueError):
             return 0.0
         return max(0.0, min(1.0, number))
+
+
+class RescopeRequest(BaseModel):
+    # Goal saat ini + hasil feasibility yang unrealistic.
+    goal: FeasibilityRequest
+    feasibility: FeasibilityResponse
+
+
+class RescopeSuggestion(BaseModel):
+    # Saran goal & deadline yang lebih realistis.
+    target: str
+    deadline_months: int = Field(gt=0, le=120)
+    rationale: str
+    changes: list[str] = Field(default_factory=list)

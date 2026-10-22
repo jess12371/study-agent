@@ -46,7 +46,7 @@ def parse_plan_sse(text: str) -> dict | None:
 
 def register(name: str) -> str:
     email = f"plan+{uuid.uuid4().hex[:8]}@example.com"
-    r = client.post("/api/auth/signup", json={"email": email, "password": "supersecret123", "name": name})
+    r = client.post("/api/auth/signup", json={"email": email, "password": "Supersecret123", "name": name})
     assert r.status_code == 201, r.text
     return r.json()["access_token"]
 
