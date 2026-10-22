@@ -1,9 +1,2 @@
-# Default install (ringan, kompatibel Vercel Functions).
-#
-# Vercel otomatis meng-install file ini sebagai dependency service backend.
-# Untuk development lokal dengan fitur penuh (F-06 semantic search memakai
-# sentence-transformers/torch), gunakan:
-#
-#   pip install -r requirements-full.txt
-#
+
 -r requirements-vercel.txt
