@@ -1,4 +1,4 @@
-// Focus Mode — Pomodoro 25 menit full-screen per sesi belajar.
+// Focus Mode — Pomodoro 25 menit full-screen per sesi belajar (multi-bahasa).
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -6,6 +6,49 @@ import { Pause, Play, Timer, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useLanguage } from "@/lib/language-context";
+
+const TRANSLATIONS = {
+  en: {
+    focusMode: "Focus Mode",
+    pause: "Pause",
+    resume: "Resume",
+    finish: "Finish",
+    cancel: "Cancel",
+    close: "Close focus mode",
+    timeUp: "Time's up!",
+    completed: "Session complete — marked as Completed.",
+    hint: (minutes: number) =>
+      `Stay on this session for ${minutes} minutes. When the timer ends, the session is marked completed automatically.`,
+    toast: "Focus session complete! Session marked as completed.",
+  },
+  id: {
+    focusMode: "Mode Fokus",
+    pause: "Jeda",
+    resume: "Lanjutkan",
+    finish: "Selesai",
+    cancel: "Batal",
+    close: "Tutup mode fokus",
+    timeUp: "Waktu habis!",
+    completed: "Sesi selesai — ditandai Completed.",
+    hint: (minutes: number) =>
+      `Fokus pada sesi ini selama ${minutes} menit. Saat timer habis, sesi otomatis ditandai selesai.`,
+    toast: "Sesi fokus selesai! Sesi ditandai selesai.",
+  },
+  zh: {
+    focusMode: "专注模式",
+    pause: "暂停",
+    resume: "继续",
+    finish: "完成",
+    cancel: "取消",
+    close: "关闭专注模式",
+    timeUp: "时间到！",
+    completed: "本次学习已完成 — 已标记为完成。",
+    hint: (minutes: number) =>
+      `请专注学习 ${minutes} 分钟。计时结束后，本次学习将自动标记为完成。`,
+    toast: "专注时间结束！本次学习已标记为完成。",
+  },
+} as const;
 
 function playBeep(): void {
   // Nada singkat via Web Audio (tanpa aset). Bisa diblokir browser sebelum gesture.
@@ -43,6 +86,9 @@ export function FocusMode({
   onClose: () => void;
   onComplete: () => void;
 }) {
+  const { language } = useLanguage();
+  const t = TRANSLATIONS[language] ?? TRANSLATIONS.en;
+
   const total = durationMinutes * 60;
   const [remaining, setRemaining] = useState(total);
   const [running, setRunning] = useState(true);
@@ -75,9 +121,9 @@ export function FocusMode({
     if (!finished || completedRef.current) return;
     completedRef.current = true;
     playBeep();
-    toast.success("Focus session complete! Session marked as completed.");
+    toast.success(t.toast);
     onComplete();
-  }, [finished, onComplete]);
+  }, [finished, onComplete, t.toast]);
 
   if (!open) return null;
 
@@ -88,7 +134,7 @@ export function FocusMode({
   const progress = ((total - remaining) / total) * 100;
 
   const handleDone = () => {
-    // "Selesai" sebelum timer habis tetap menandai sesi completed.
+    // "Finish" sebelum timer habis tetap menandai sesi completed.
     if (!completedRef.current) {
       completedRef.current = true;
       onComplete();
@@ -100,7 +146,7 @@ export function FocusMode({
     <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-8 bg-background px-6 text-center">
       <button
         type="button"
-        aria-label="Close focus mode"
+        aria-label={t.close}
         onClick={onClose}
         className="absolute right-6 top-6 text-muted-foreground hover:text-foreground"
       >
@@ -109,7 +155,7 @@ export function FocusMode({
 
       <p className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
         <Timer className="h-4 w-4" />
-        Focus Mode
+        {t.focusMode}
       </p>
 
       <h2 className="max-w-xl text-2xl font-semibold sm:text-3xl">{topic}</h2>
@@ -127,9 +173,10 @@ export function FocusMode({
       </div>
 
       {finished && (
-        <p className="text-sm font-medium text-emerald-600">
-          Session complete — marked as Completed.
-        </p>
+        <div className="space-y-1">
+          <p className="text-lg font-semibold text-emerald-600">{t.timeUp}</p>
+          <p className="text-sm font-medium text-emerald-600">{t.completed}</p>
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-center gap-3">
@@ -138,25 +185,24 @@ export function FocusMode({
             {running ? (
               <>
                 <Pause className="h-4 w-4" />
-                Pause
+                {t.pause}
               </>
             ) : (
               <>
                 <Play className="h-4 w-4" />
-                Resume
+                {t.resume}
               </>
             )}
           </Button>
         )}
-        <Button onClick={handleDone}>Selesai</Button>
+        <Button onClick={handleDone}>{t.finish}</Button>
         <Button variant="ghost" onClick={onClose}>
-          Batal
+          {t.cancel}
         </Button>
       </div>
 
       <p className="max-w-sm text-xs text-muted-foreground">
-        Stay on this session for {durationMinutes} minutes. When the timer ends,
-        the session is marked completed automatically.
+        {t.hint(durationMinutes)}
       </p>
     </div>
   );

@@ -125,7 +125,6 @@ function GoalDetail() {
   const online = useOnline();
   const { language } = useLanguage();
   const [streamStatus, setStreamStatus] = useState("Starting...");
-  const [streamText, setStreamText] = useState("");
   const [exportingIcs, setExportingIcs] = useState(false);
   const [rescoping, setRescoping] = useState(false);
   const [generatingNext, setGeneratingNext] = useState(false);
@@ -258,7 +257,6 @@ function GoalDetail() {
     if (feasibility && !feasibility.feasible) return;
     setGenerating(true);
     setStreamStatus("Starting...");
-    setStreamText("");
     const holder: { plan: PlanResponse | null } = { plan: null };
     try {
       await plansApi.generateStream(
@@ -269,7 +267,6 @@ function GoalDetail() {
         },
         {
           onStatus: (stage) => setStreamStatus(stage),
-          onDelta: (content) => setStreamText((prev) => prev + content),
           onPlan: (created) => {
             holder.plan = created;
           },
@@ -287,7 +284,6 @@ function GoalDetail() {
       toast.error(getErrorMessage(err));
     } finally {
       setGenerating(false);
-      setStreamText("");
     }
   };
 
@@ -630,9 +626,7 @@ function GoalDetail() {
           </p>
         )}
 
-        {generating && (
-          <PlanStreamPanel status={streamStatus} text={streamText} />
-        )}
+        {generating && <PlanStreamPanel status={streamStatus} />}
 
         {feasibility && !feasibility.feasible && (
           <p className="text-sm text-destructive">
