@@ -1,4 +1,6 @@
 // Card ringkas untuk menampilkan satu goal di dashboard.
+"use client";
+
 import Link from "next/link";
 import { CalendarDays, Target } from "lucide-react";
 
@@ -10,8 +12,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { Goal } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
+import type { TranslationKey } from "@/lib/dictionary";
+
+const STATUS_KEY: Record<string, TranslationKey> = {
+  active: "statusActive",
+  archived: "statusArchived",
+  completed: "statusCompleted",
+  superseded: "statusSuperseded",
+};
 
 export function GoalCard({ goal }: { goal: Goal }) {
+  const { t } = useLanguage();
+  const statusKey = STATUS_KEY[goal.status] ?? "statusActive";
+
   return (
     <Link href={`/goals/${goal.id}`} className="block">
       <Card className="h-full transition-shadow hover:shadow-md">
@@ -26,9 +40,9 @@ export function GoalCard({ goal }: { goal: Goal }) {
                     ? "secondary"
                     : "outline"
               }
-              className="shrink-0 capitalize"
+              className="shrink-0"
             >
-              {goal.status}
+              {t(statusKey)}
             </Badge>
           </div>
         </CardHeader>
@@ -42,8 +56,13 @@ export function GoalCard({ goal }: { goal: Goal }) {
           <p className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 shrink-0" />
             {goal.deadline_months
-              ? `${goal.deadline_months} month${goal.deadline_months > 1 ? "s" : ""} deadline`
-              : "No deadline set"}
+              ? t(
+                  goal.deadline_months > 1
+                    ? "deadlineMonthsPlural"
+                    : "deadlineMonths",
+                  { count: goal.deadline_months }
+                )
+              : t("noDeadline")}
           </p>
         </CardContent>
       </Card>

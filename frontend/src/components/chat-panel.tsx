@@ -16,6 +16,7 @@ import {
   type ChatAction,
   type ChatMessage,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 
 export function ChatPanel({
   goalId,
@@ -24,6 +25,7 @@ export function ChatPanel({
   goalId: string;
   onPlanUpdated?: () => void;
 }) {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -106,7 +108,7 @@ export function ChatPanel({
     try {
       await chatApi.clear(goalId);
       setMessages([]);
-      toast.success("Chat cleared.");
+      toast.success(t("chatCleared"));
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -124,7 +126,7 @@ export function ChatPanel({
             disabled={messages.length === 0}
           >
             <Trash2 className="h-4 w-4" />
-            Clear
+            {t("clear")}
           </Button>
         </div>
 
@@ -136,8 +138,7 @@ export function ChatPanel({
             </div>
           ) : messages.length === 0 && !streamText ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Ask Study Agent anything about your plan — e.g. &quot;Why is Week 3
-              hard?&quot; or &quot;请解释我的计划&quot;.
+              {t("chatEmpty")}
             </p>
           ) : (
             messages.map((message) => (
@@ -163,7 +164,7 @@ export function ChatPanel({
           {sending && !streamText && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              Study Agent is typing...
+              {t("typing")}
             </div>
           )}
           <div ref={bottomRef} />
@@ -172,7 +173,7 @@ export function ChatPanel({
         <div className="flex gap-2">
           <Input
             value={input}
-            placeholder="Ask about your plan..."
+            placeholder={t("chatPlaceholder")}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -188,7 +189,7 @@ export function ChatPanel({
             ) : (
               <Send className="h-4 w-4" />
             )}
-            Send
+            {t("send")}
           </Button>
         </div>
       </CardContent>

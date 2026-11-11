@@ -241,6 +241,19 @@ def export_plan_to_pdf(user_id: uuid.UUID, plan_id: uuid.UUID) -> bytes:
 
 # ---------------------------------------------------------------- ICS
 
+REMINDER_TEXT = {
+    "en": 'Time to study! Session "{topic}" starts in 15 minutes.',
+    "id": 'Waktunya belajar! Sesi "{topic}" dimulai 15 menit lagi.',
+    "zh": "该学习了！课程“{topic}”将在 15 分钟后开始。",
+}
+
+REMINDER_MINUTES_BEFORE = 15
+
+
+def _reminder_text(topic: str, language: str) -> str:
+    template = REMINDER_TEXT.get(language, REMINDER_TEXT["en"])
+    return template.format(topic=topic or "Study session")
+
 
 def _parse_time(value: str | None) -> time:
     # Parse "HH:MM" → datetime.time. Fallback ke DEFAULT_SESSION_TIME.
@@ -252,9 +265,11 @@ def _parse_time(value: str | None) -> time:
         return time(19, 0)
 
 
-def export_plan_to_ics(user_id: uuid.UUID, plan_id: uuid.UUID) -> str:
-    # Bangun kalender iCalendar; tiap sesi jadi satu VEVENT.
-    from icalendar import Calendar, Event
+def export_plan_to_ics(
+    user_id: uuid.UUID, plan_id: uuid.UUID, language: str = "en"
+) -> str:
+    # Bangun kalender iCalendar; tiap sesi jadi satu VEVENT + VALARM (reminder).
+    from icalendar import Alarm, Calendar, Event
 
     with SessionLocal() as db:
         plan = _get_owned_plan(db, user_id, plan_id)
@@ -296,8 +311,23 @@ def export_plan_to_ics(user_id: uuid.UUID, plan_id: uuid.UUID) -> str:
                 "description",
                 "\n".join(description_parts) if description_parts else "Study session",
             )
+
+            # Reminder 15 menit sebelum sesi mulai (VALARM).
+            alarm = Alarm()
+            alarm.add("action", "DISPLAY")
+            alarm.add(
+                "description",
+                _reminder_text(
+                    str(session.get("topic") or "Study session"), language
+                ),
+            )
+            alarm.add("trigger", timedelta(minutes=-REMINDER_MINUTES_BEFORE))
+            event.add_component(alarm)
+
             calendar.add_component(event)
             count += 1
 
-    logger.info("ICS diexport: plan_id=%s events=%d", plan_id, count)
+    logger.info(
+        "ICS diexport: plan_id=%s events=%d language=%s", plan_id, count, language
+    )
     return calendar.to_ical().decode("utf-8")

@@ -22,8 +22,10 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { goalsApi, type Goal } from "@/lib/api";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useLanguage } from "@/lib/language-context";
 
 function GoalsSection() {
+  const { t } = useLanguage();
   const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,11 +37,11 @@ function GoalsSection() {
       const data = await goalsApi.list();
       setGoals(data);
     } catch {
-      setError("Could not load your goals. Please try again.");
+      setError(t("couldNotLoadGoals"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchGoals();
@@ -56,23 +58,21 @@ function GoalsSection() {
   }
 
   if (error) {
-    return <ErrorState title="Failed to load goals" message={error} onRetry={fetchGoals} />;
+    return <ErrorState title={t("failedLoadGoals")} message={error} onRetry={fetchGoals} />;
   }
 
   if (goals.length === 0) {
     return (
       <Card className="border-dashed">
         <CardHeader className="items-center text-center">
-          <CardTitle className="text-xl">No goals yet</CardTitle>
-          <CardDescription>
-            Create your first goal to generate a personalized study plan.
-          </CardDescription>
+          <CardTitle className="text-xl">{t("noGoalsTitle")}</CardTitle>
+          <CardDescription>{t("noGoalsDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center">
           <Button asChild>
             <Link href="/goals/new">
               <Plus className="h-4 w-4" />
-              Create New Goal
+              {t("createNewGoal")}
             </Link>
           </Button>
         </CardContent>
@@ -91,6 +91,7 @@ function GoalsSection() {
 
 function DashboardContent() {
   const { user } = useAuth();
+  const { t } = useLanguage();
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -99,27 +100,27 @@ function DashboardContent() {
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Welcome, {user?.name || user?.email || "Learner"}
+              {t("welcomeUser", {
+                name: user?.name || user?.email || "Learner",
+              })}
             </h1>
-            <p className="text-muted-foreground">
-              Here are your learning goals and study plans.
-            </p>
+            <p className="text-muted-foreground">{t("dashboardSubtitle")}</p>
           </div>
           <Button asChild>
             <Link href="/goals/new">
               <Plus className="h-4 w-4" />
-              Create New Goal
+              {t("createNewGoal")}
             </Link>
           </Button>
         </div>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Goals</h2>
+          <h2 className="text-xl font-semibold">{t("yourGoals")}</h2>
           <GoalsSection />
         </section>
 
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Your Quiz Stats</h2>
+          <h2 className="text-xl font-semibold">{t("quizStatsTitle")}</h2>
           <QuizStats />
         </section>
       </main>

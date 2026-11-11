@@ -6,11 +6,13 @@ import { Download, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { usePwaInstall } from "@/hooks/use-pwa-install";
+import { useLanguage } from "@/lib/language-context";
 
 const VISITS_KEY = "sa_visits";
 const DISMISS_KEY = "sa_pwa_dismissed";
 
 export function PwaInstallPrompt() {
+  const { t } = useLanguage();
   const { canInstall, installed, promptInstall } = usePwaInstall();
   const [visible, setVisible] = useState(false);
 
@@ -43,22 +45,22 @@ export function PwaInstallPrompt() {
           <Download className="h-4 w-4 text-primary" />
         </span>
         <div className="flex-1 space-y-2">
-          <p className="text-sm font-medium">Install Study Agent</p>
+          <p className="text-sm font-medium">{t("installTitle")}</p>
           <p className="text-xs text-muted-foreground">
-            Add it to your home screen for a full-screen, app-like experience.
+            {t("installDesc")}
           </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleInstall}>
-              Install App
+              {t("installApp")}
             </Button>
             <Button size="sm" variant="ghost" onClick={handleLater}>
-              Later
+              {t("later")}
             </Button>
           </div>
         </div>
         <button
           type="button"
-          aria-label="Dismiss"
+          aria-label={t("dismiss")}
           onClick={handleLater}
           className="text-muted-foreground hover:text-foreground"
         >

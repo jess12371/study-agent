@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { GraduationCap, Loader2, MailCheck } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -30,33 +30,44 @@ import {
 import { Input } from "@/components/ui/input";
 import { authApi, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useLanguage } from "@/lib/language-context";
 
-const signupSchema = z
-  .object({
-    name: z.string().min(1, "Name is required.").max(100),
-    email: z.string().email("Enter a valid email address."),
-    password: z
-      .string()
-      .min(8, "Password must be at least 8 characters.")
-      .regex(/[A-Z]/, "Password must include at least 1 uppercase letter.")
-      .regex(/\d/, "Password must include at least 1 number."),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords do not match.",
-    path: ["confirmPassword"],
-  });
-
-type SignupValues = z.infer<typeof signupSchema>;
+type SignupValues = {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+};
 
 export default function SignupPage() {
   const router = useRouter();
   const { setAuth, isAuthenticated, isHydrated } = useAuth();
+  const { t } = useLanguage();
   const [submitting, setSubmitting] = useState(false);
   const [step, setStep] = useState<"form" | "otp">("form");
   const [pendingEmail, setPendingEmail] = useState("");
   const [otp, setOtp] = useState("");
   const [verifying, setVerifying] = useState(false);
+
+  const signupSchema = useMemo(
+    () =>
+      z
+        .object({
+          name: z.string().min(1, t("validationName")).max(100),
+          email: z.string().email(t("validationEmail")),
+          password: z
+            .string()
+            .min(8, t("validationPasswordMin"))
+            .regex(/[A-Z]/, t("validationPasswordUpper"))
+            .regex(/\d/, t("validationPasswordNumber")),
+          confirmPassword: z.string(),
+        })
+        .refine((data) => data.password === data.confirmPassword, {
+          message: t("validationPasswordMatch"),
+          path: ["confirmPassword"],
+        }),
+    [t]
+  );
 
   const form = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
@@ -79,7 +90,7 @@ export default function SignupPage() {
       });
       setPendingEmail(values.email);
       setStep("otp");
-      toast.info("Enter the 6-digit code. In mock mode it is printed in the backend logs.");
+      toast.info(t("otpInfoMock"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     } finally {
@@ -89,14 +100,14 @@ export default function SignupPage() {
 
   const handleVerify = async () => {
     if (!/^\d{6}$/.test(otp)) {
-      toast.error("Enter the 6-digit OTP.");
+      toast.error(t("otpInvalid"));
       return;
     }
     setVerifying(true);
     try {
       const data = await authApi.verifyOtp(pendingEmail, otp);
       setAuth(data.access_token, data.user);
-      toast.success("Email verified! Welcome to Study Agent.");
+      toast.success(t("emailVerified"));
       router.push("/dashboard");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -108,7 +119,7 @@ export default function SignupPage() {
   const handleResend = async () => {
     try {
       await authApi.resendOtp(pendingEmail);
-      toast.success("A new OTP was generated. Check the backend logs.");
+      toast.success(t("otpResent"));
     } catch (error) {
       toast.error(getErrorMessage(error));
     }
@@ -126,12 +137,12 @@ export default function SignupPage() {
             )}
           </div>
           <CardTitle>
-            {step === "form" ? "Create your account" : "Verify your email"}
+            {step === "form" ? t("signupTitle") : t("otpTitle")}
           </CardTitle>
           <CardDescription>
             {step === "form"
-              ? "Start building your study plan in minutes."
-              : `We sent a 6-digit code for ${pendingEmail}. In mock mode, check the backend logs.`}
+              ? t("signupDesc")
+              : t("otpDesc", { email: pendingEmail })}
           </CardDescription>
         </CardHeader>
 
@@ -144,9 +155,13 @@ export default function SignupPage() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Name</FormLabel>
+                      <FormLabel>{t("name")}</FormLabel>
                       <FormControl>
-                        <Input placeholder="Jane Doe" autoComplete="name" {...field} />
+                        <Input
+                          placeholder={t("namePlaceholder")}
+                          autoComplete="name"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -157,11 +172,11 @@ export default function SignupPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t("email")}</FormLabel>
                       <FormControl>
                         <Input
                           type="email"
-                          placeholder="you@example.com"
+                          placeholder={t("emailPlaceholder")}
                           autoComplete="email"
                           {...field}
                         />
@@ -175,11 +190,11 @@ export default function SignupPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>{t("password")}</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Min 8 chars, 1 uppercase, 1 number"
+                          placeholder={t("passwordHint")}
                           autoComplete="new-password"
                           {...field}
                         />
@@ -193,11 +208,11 @@ export default function SignupPage() {
                   name="confirmPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Confirm password</FormLabel>
+                      <FormLabel>{t("confirmPassword")}</FormLabel>
                       <FormControl>
                         <Input
                           type="password"
-                          placeholder="Repeat your password"
+                          placeholder={t("confirmPlaceholder")}
                           autoComplete="new-password"
                           {...field}
                         />
@@ -208,7 +223,7 @@ export default function SignupPage() {
                 />
                 <Button type="submit" className="w-full" disabled={submitting}>
                   {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Sign up
+                  {t("signupButton")}
                 </Button>
               </form>
             </Form>
@@ -216,13 +231,13 @@ export default function SignupPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium" htmlFor="otp">
-                  6-digit code
+                  {t("otpLabel")}
                 </label>
                 <Input
                   id="otp"
                   inputMode="numeric"
                   maxLength={6}
-                  placeholder="123456"
+                  placeholder={t("otpPlaceholder")}
                   value={otp}
                   onChange={(event) =>
                     setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))
@@ -235,7 +250,7 @@ export default function SignupPage() {
                 disabled={verifying || otp.length !== 6}
               >
                 {verifying && <Loader2 className="h-4 w-4 animate-spin" />}
-                Verify &amp; continue
+                {t("verifyContinue")}
               </Button>
               <div className="flex justify-between text-sm">
                 <button
@@ -243,7 +258,7 @@ export default function SignupPage() {
                   onClick={handleResend}
                   className="font-medium text-primary hover:underline"
                 >
-                  Resend code
+                  {t("resendCode")}
                 </button>
                 <button
                   type="button"
@@ -253,7 +268,7 @@ export default function SignupPage() {
                   }}
                   className="text-muted-foreground hover:underline"
                 >
-                  Back
+                  {t("back")}
                 </button>
               </div>
             </div>
@@ -261,9 +276,9 @@ export default function SignupPage() {
         </CardContent>
 
         <CardFooter className="justify-center text-sm text-muted-foreground">
-          Already have an account?&nbsp;
+          {t("haveAccount")}&nbsp;
           <Link href="/login" className="font-medium text-primary hover:underline">
-            Log in
+            {t("loginLink")}
           </Link>
         </CardFooter>
       </Card>

@@ -123,7 +123,7 @@ function GoalDetail() {
   const [history, setHistory] = useState<PlanVersion[]>([]);
   const [switchingVersion, setSwitchingVersion] = useState(false);
   const online = useOnline();
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [streamStatus, setStreamStatus] = useState("Starting...");
   const [exportingIcs, setExportingIcs] = useState(false);
   const [rescoping, setRescoping] = useState(false);
@@ -214,9 +214,9 @@ function GoalDetail() {
       );
       setFeasibility(result);
       if (result.feasible) {
-        toast.success("Feasibility check complete.");
+        toast.success(t("feasibilityComplete"));
       } else {
-        toast.warning("Target is not realistic yet. Try re-scoping.");
+        toast.warning(t("feasibilityUnrealistic"));
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -244,7 +244,7 @@ function GoalDetail() {
       });
       setGoal(updated);
       await cacheGoal(goalId, updated);
-      toast.success("Goal re-scoped. Re-running feasibility check...");
+      toast.success(t("rescopeSuccess"));
       await runFeasibilityFor(updated);
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -278,7 +278,7 @@ function GoalDetail() {
         setStatsRefresh((n) => n + 1);
         await cachePlan(goalId, holder.plan);
         await loadHistory();
-        toast.success("Study plan generated!");
+        toast.success(t("planGenerated"));
       }
     } catch (err) {
       toast.error(getErrorMessage(err));
@@ -295,7 +295,7 @@ function GoalDetail() {
       setPlan(updated);
       await cachePlan(goalId, updated);
       setStatsRefresh((n) => n + 1);
-      toast.success("Next month schedule generated!");
+      toast.success(t("nextMonthGenerated"));
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -307,11 +307,9 @@ function GoalDetail() {
     if (!plan) return;
     setExportingIcs(true);
     try {
-      const blob = await exportApi.icsAlias(plan.plan_id);
+      const blob = await exportApi.icsAlias(plan.plan_id, language);
       downloadBlob(blob, `study-plan-${plan.plan_id}.ics`);
-      toast.success(
-        "Calendar file downloaded. Import it into Google Calendar."
-      );
+      toast.success(t("calendarDownloaded"));
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -364,7 +362,7 @@ function GoalDetail() {
       await enqueueProgress(plan.plan_id, payload);
       await cacheProgress(plan.plan_id, Object.values(nextMap));
       await requestBackgroundSync();
-      toast.info("Saved offline — will sync when you're back online.");
+      toast.info(t("offlineSaved"));
     };
 
     // Offline: simpan ke IndexedDB dan antrekan untuk Background Sync.
@@ -440,8 +438,8 @@ function GoalDetail() {
   if (error || !goal) {
     return (
       <ErrorState
-        title="Goal not found"
-        message={error ?? "This goal does not exist or isn't yours."}
+        title={t("goalNotFound")}
+        message={error ?? t("goalNotFoundDesc")}
         onRetry={loadGoal}
       />
     );
@@ -452,14 +450,14 @@ function GoalDetail() {
       <Button variant="ghost" size="sm" asChild className="-ml-2">
         <Link href="/dashboard">
           <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
+          {t("backToDashboard")}
         </Link>
       </Button>
 
       {!online && (
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-          <span className="font-medium">You&apos;re offline.</span> Showing cached
-          data. Progress changes are saved locally and will sync automatically.
+          <span className="font-medium">{t("offlineTitle")}</span>{" "}
+          {t("offlineDesc")}
         </div>
       )}
 
@@ -483,21 +481,40 @@ function GoalDetail() {
             <span className="flex items-center gap-2">
               <CalendarDays className="h-4 w-4" />
               {goal.deadline_months
-                ? `${goal.deadline_months} month${goal.deadline_months > 1 ? "s" : ""}`
-                : "No deadline"}
+                ? t(
+                    goal.deadline_months > 1
+                      ? "deadlineMonthsPlural"
+                      : "deadlineMonths",
+                    { count: goal.deadline_months }
+                  )
+                : t("noDeadline")}
             </span>
             <span>
-              Level: <span className="font-medium text-foreground">{goal.current_level || "—"}</span>
+              {t("currentLevel")}:{" "}
+              <span className="font-medium text-foreground">
+                {goal.current_level || "—"}
+              </span>
             </span>
             <span>
-              Study time: <span className="font-medium text-foreground capitalize">{goal.preferred_study_time || "—"}</span>
+              {t("preferredStudyTime")}:{" "}
+              <span className="font-medium capitalize text-foreground">
+                {goal.preferred_study_time || "—"}
+              </span>
             </span>
             <span>
-              Session: <span className="font-medium text-foreground">{goal.max_session_minutes ?? "—"} min</span>
+              {t("maxSession")}:{" "}
+              <span className="font-medium text-foreground">
+                {goal.max_session_minutes
+                  ? t("minutesShort", { minutes: goal.max_session_minutes })
+                  : "—"}
+              </span>
             </span>
             {goal.work_hours_start && goal.work_hours_end && (
               <span>
-                Work: <span className="font-medium text-foreground">{goal.work_hours_start}–{goal.work_hours_end}</span>
+                {t("workStarts")}–{t("workEnds")}:{" "}
+                <span className="font-medium text-foreground">
+                  {goal.work_hours_start}–{goal.work_hours_end}
+                </span>
               </span>
             )}
           </div>
@@ -507,7 +524,7 @@ function GoalDetail() {
       {/* Feasibility */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">Feasibility Check</h2>
+          <h2 className="text-xl font-semibold">{t("feasibilityCheck")}</h2>
           <Button
             onClick={runFeasibility}
             disabled={checking}
@@ -518,7 +535,7 @@ function GoalDetail() {
             ) : (
               <Sparkles className="h-4 w-4" />
             )}
-            {feasibility ? "Re-run check" : "Run Feasibility Check"}
+            {feasibility ? t("rerunCheck") : t("runFeasibility")}
           </Button>
         </div>
 
@@ -531,7 +548,7 @@ function GoalDetail() {
         ) : (
           <Card className="border-dashed">
             <CardContent className="py-8 text-center text-sm text-muted-foreground">
-              Run the feasibility check to see if this goal is realistic.
+              {t("feasibilityEmpty")}
             </CardContent>
           </Card>
         )}
@@ -542,7 +559,7 @@ function GoalDetail() {
           <Separator />
           {/* Progress (F-04) */}
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Your Progress</h2>
+            <h2 className="text-xl font-semibold">{t("yourProgress")}</h2>
             <ProgressStatsCard
               planId={plan.plan_id}
               refreshKey={statsRefresh}
@@ -576,7 +593,7 @@ function GoalDetail() {
       {/* Plan */}
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-xl font-semibold">Study Plan</h2>
+          <h2 className="text-xl font-semibold">{t("studyPlan")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               onClick={generatePlan}
@@ -587,9 +604,9 @@ function GoalDetail() {
               }
               title={
                 feasibility && !feasibility.feasible
-                  ? "Re-scope the goal to make it realistic first"
+                  ? t("generatePlanTooltipUnrealistic")
                   : !feasibility && !plan
-                    ? "Run the feasibility check first"
+                    ? t("generatePlanTooltipFirst")
                     : undefined
               }
             >
@@ -598,7 +615,7 @@ function GoalDetail() {
               ) : (
                 <Wand2 className="h-4 w-4" />
               )}
-              {plan ? "Regenerate Plan" : "Generate Plan"}
+              {plan ? t("regeneratePlan") : t("generatePlan")}
             </Button>
             {plan && (
               <>
@@ -612,9 +629,12 @@ function GoalDetail() {
                   ) : (
                     <CalendarPlus className="h-4 w-4" />
                   )}
-                  Add to Calendar
+                  {t("addToCalendar")}
                 </Button>
                 <ExportMenu planId={plan.plan_id} />
+                <p className="w-full text-right text-xs text-muted-foreground">
+                  {t("calendarReminderHint")}
+                </p>
               </>
             )}
           </div>
@@ -622,17 +642,14 @@ function GoalDetail() {
 
         {!feasibility && !plan && (
           <p className="text-sm text-muted-foreground">
-            Run the feasibility check first to unlock plan generation.
+            {t("runFeasibilityFirst")}
           </p>
         )}
 
         {generating && <PlanStreamPanel status={streamStatus} />}
 
         {feasibility && !feasibility.feasible && (
-          <p className="text-sm text-destructive">
-            Generate Plan is disabled until the goal is realistic. Use
-            &quot;Re-scope Goal &amp; Deadline&quot; above.
-          </p>
+          <p className="text-sm text-destructive">{t("generateDisabledHint")}</p>
         )}
 
         {plan && !generating ? (
@@ -650,8 +667,7 @@ function GoalDetail() {
           feasibility && (
             <Card className="border-dashed">
               <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                Generate a study plan to see milestones, a weekly schedule, and
-                resources.
+                {t("generatePlanEmpty")}
               </CardContent>
             </Card>
           )
@@ -663,9 +679,7 @@ function GoalDetail() {
           <Separator />
           {/* Recommended Resources (F-06) */}
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">
-              Recommended Resources for Your Goal
-            </h2>
+            <h2 className="text-xl font-semibold">{t("recommendedResources")}</h2>
             <ResourceRecommendations planId={plan.plan_id} />
           </section>
         </>
@@ -676,7 +690,7 @@ function GoalDetail() {
           <Separator />
           {/* Agent Dialog (F-11) */}
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold">Chat with Study Agent</h2>
+            <h2 className="text-xl font-semibold">{t("chatWithAgent")}</h2>
             <ChatPanel goalId={goalId} onPlanUpdated={loadGoal} />
           </section>
         </>

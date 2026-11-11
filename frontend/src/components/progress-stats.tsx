@@ -17,6 +17,7 @@ import {
   type ProgressStats,
   type RescheduleResult,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 
 export function ProgressStatsCard({
   planId,
@@ -29,6 +30,7 @@ export function ProgressStatsCard({
   onReset?: () => void;
   onRescheduled?: (result: RescheduleResult) => void;
 }) {
+  const { t } = useLanguage();
   const [stats, setStats] = useState<ProgressStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,12 +52,15 @@ export function ProgressStatsCard({
   }, [fetchStats, refreshKey]);
 
   const handleReset = async () => {
-    if (typeof window !== "undefined" && !window.confirm("Reset all progress for this plan?")) {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(t("resetConfirm"))
+    ) {
       return;
     }
     try {
       await progressApi.reset(planId);
-      toast.success("Progress reset.");
+      toast.success(t("progressReset"));
       await fetchStats();
       onReset?.();
     } catch (err) {
@@ -70,8 +75,8 @@ export function ProgressStatsCard({
   if (error || !stats) {
     return (
       <ErrorState
-        title="Failed to load progress"
-        message={error ?? "Unknown error"}
+        title={t("failedLoadProgress")}
+        message={error ?? t("unknownError")}
         onRetry={fetchStats}
       />
     );
@@ -84,10 +89,10 @@ export function ProgressStatsCard({
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between space-y-0">
-        <CardTitle className="text-lg">Your Progress</CardTitle>
+        <CardTitle className="text-lg">{t("yourProgress")}</CardTitle>
         <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
           <RotateCcw className="h-4 w-4" />
-          Reset
+          {t("reset")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -95,10 +100,10 @@ export function ProgressStatsCard({
           <div className="flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-medium">
-                You&apos;re behind schedule ({percent}% complete)
+                {t("behindSchedule", { percent })}
               </p>
               <p className="text-sm text-muted-foreground">
-                Want to adapt your plan to get back on track?
+                {t("adaptPlanHint")}
               </p>
             </div>
             <RescheduleDialog planId={planId} onApplied={onRescheduled ?? (() => {})} />
@@ -107,7 +112,7 @@ export function ProgressStatsCard({
 
         <div className="space-y-2">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-muted-foreground">Completion rate</span>
+            <span className="text-muted-foreground">{t("completionRate")}</span>
             <span className="font-semibold">{percent}%</span>
           </div>
           <Progress value={percent} />
@@ -116,22 +121,22 @@ export function ProgressStatsCard({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border p-3 text-center">
             <p className="text-xl font-semibold">{stats.total_hours}</p>
-            <p className="text-xs text-muted-foreground">Hours studied</p>
+            <p className="text-xs text-muted-foreground">{t("hoursStudied")}</p>
           </div>
           <div className="rounded-lg border p-3 text-center">
             <p className="flex items-center justify-center gap-1 text-xl font-semibold">
               <Flame className="h-4 w-4 text-orange-500" />
               {stats.current_streak}
             </p>
-            <p className="text-xs text-muted-foreground">Current streak</p>
+            <p className="text-xs text-muted-foreground">{t("currentStreak")}</p>
           </div>
           <div className="rounded-lg border p-3 text-center">
             <p className="text-xl font-semibold">{stats.longest_streak}</p>
-            <p className="text-xs text-muted-foreground">Longest streak</p>
+            <p className="text-xs text-muted-foreground">{t("longestStreak")}</p>
           </div>
           <div className="rounded-lg border p-3 text-center">
             <p className="text-xl font-semibold">{stats.total_sessions}</p>
-            <p className="text-xs text-muted-foreground">Total sessions</p>
+            <p className="text-xs text-muted-foreground">{t("totalSessions")}</p>
           </div>
         </div>
 
@@ -139,19 +144,22 @@ export function ProgressStatsCard({
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" />
             <span className="text-muted-foreground">
-              Completed <span className="font-medium text-foreground">{stats.completed}</span>
+              {t("completed")}{" "}
+              <span className="font-medium text-foreground">{stats.completed}</span>
             </span>
           </span>
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-zinc-400" />
             <span className="text-muted-foreground">
-              Skipped <span className="font-medium text-foreground">{stats.skipped}</span>
+              {t("skipped")}{" "}
+              <span className="font-medium text-foreground">{stats.skipped}</span>
             </span>
           </span>
           <span className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
             <span className="text-muted-foreground">
-              Pending <span className="font-medium text-foreground">{stats.pending}</span>
+              {t("pending")}{" "}
+              <span className="font-medium text-foreground">{stats.pending}</span>
             </span>
           </span>
         </div>

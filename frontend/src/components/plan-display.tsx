@@ -1,4 +1,6 @@
 // Tampilan lengkap study plan (F-03): summary, milestones, jadwal, resources.
+"use client";
+
 import Link from "next/link";
 import { BookOpen, ExternalLink, RefreshCw } from "lucide-react";
 
@@ -18,6 +20,7 @@ import type {
   ProgressEntry,
   ProgressStatus,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 
 export function PlanDisplay({
   plan,
@@ -41,17 +44,22 @@ export function PlanDisplay({
   onGenerateNextMonth?: () => void;
   generatingNext?: boolean;
 }) {
+  const { t } = useLanguage();
+
   return (
     <div className="space-y-8">
       {/* Summary */}
       <Card>
         <CardHeader className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <CardTitle className="text-lg">Study Plan</CardTitle>
-            <Badge variant="secondary">{plan.total_weeks} weeks</Badge>
+            <CardTitle className="text-lg">{t("studyPlan")}</CardTitle>
+            <Badge variant="secondary">
+              {t("weeksCount", { count: plan.total_weeks })}
+            </Badge>
             {plan.version > 1 && (
               <Badge className="gap-1">
-                <RefreshCw className="h-3 w-3" />v{plan.version}
+                <RefreshCw className="h-3 w-3" />
+                {t("versionShort", { version: plan.version })}
               </Badge>
             )}
           </div>
@@ -64,7 +72,7 @@ export function PlanDisplay({
       {/* Milestones */}
       {plan.milestones.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Milestones</h2>
+          <h2 className="text-xl font-semibold">{t("milestones")}</h2>
           <div className="space-y-4">
             {plan.milestones.map((milestone, index) => (
               <MilestoneCard
@@ -82,7 +90,7 @@ export function PlanDisplay({
       {/* Weekly schedule */}
       {plan.weekly_schedule.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Weekly Schedule</h2>
+          <h2 className="text-xl font-semibold">{t("weeklySchedule")}</h2>
           <WeekScheduleView
             weeks={plan.weekly_schedule}
             progress={progress}
@@ -101,7 +109,7 @@ export function PlanDisplay({
       {/* Resources */}
       {plan.resources.length > 0 && (
         <section className="space-y-4">
-          <h2 className="text-xl font-semibold">Resources</h2>
+          <h2 className="text-xl font-semibold">{t("resources")}</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {plan.resources.map((resource, index) => (
               <Card key={`${resource.name}-${index}`}>
@@ -127,7 +135,7 @@ export function PlanDisplay({
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     >
-                      Open resource
+                      {t("openResource")}
                       <ExternalLink className="h-3 w-3" />
                     </Link>
                   )}

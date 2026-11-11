@@ -8,6 +8,7 @@ import { ErrorState } from "@/components/error-state";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage, quizApi, type QuizHistory } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
 function StatCard({
@@ -35,6 +36,7 @@ function StatCard({
 }
 
 export function QuizStats() {
+  const { t } = useLanguage();
   const [data, setData] = useState<QuizHistory | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function QuizStats() {
   if (error) {
     return (
       <ErrorState
-        title="Could not load quiz stats"
+        title={t("couldNotLoadQuizStats")}
         message={error}
         onRetry={load}
       />
@@ -79,9 +81,7 @@ export function QuizStats() {
     return (
       <Card className="border-dashed">
         <CardContent className="py-8 text-center text-sm text-muted-foreground">
-          No quizzes yet. Open a study plan, pick a session, and click{" "}
-          <span className="font-medium text-foreground">Quiz Me</span> to start
-          tracking your scores.
+          {t("noQuizzesDesc")}
         </CardContent>
       </Card>
     );
@@ -90,22 +90,22 @@ export function QuizStats() {
   return (
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatCard icon={Brain} label="Total quizzes" value={data.total_quizzes} />
+        <StatCard icon={Brain} label={t("totalQuizzes")} value={data.total_quizzes} />
         <StatCard
           icon={Target}
-          label="Average score"
+          label={t("averageScore")}
           value={`${data.average_score}%`}
         />
         <StatCard
           icon={Trophy}
-          label="Best score"
+          label={t("bestScore")}
           value={`${data.best_score}%`}
         />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Recent attempts</CardTitle>
+          <CardTitle className="text-base">{t("recentAttempts")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           {data.attempts.slice(0, 5).map((attempt) => {
@@ -116,8 +116,9 @@ export function QuizStats() {
               <div key={attempt.id} className="space-y-1">
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="truncate">
-                    {attempt.goal_topic ?? "Study plan"} · Week{" "}
-                    {attempt.week_number} · {attempt.day_name}
+                    {attempt.goal_topic ?? t("studyPlan")} ·{" "}
+                    {t("weekShort", { week: attempt.week_number })} ·{" "}
+                    {attempt.day_name}
                   </span>
                   <span className="shrink-0 font-medium">
                     {attempt.score}/{attempt.total_questions} · {percentage}%

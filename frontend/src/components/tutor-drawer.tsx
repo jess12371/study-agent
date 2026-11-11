@@ -21,7 +21,7 @@ import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
 export function TutorDrawer() {
-  const { language } = useLanguage();
+  const { language, t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [topic, setTopic] = useState("General");
   const [input, setInput] = useState("");
@@ -56,7 +56,7 @@ export function TutorDrawer() {
       );
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: acc || "No response." },
+        { role: "assistant", content: acc || t("noResponse") },
       ]);
       setStreaming("");
     } catch (err) {
@@ -72,39 +72,35 @@ export function TutorDrawer() {
       <DialogTrigger asChild>
         <Button
           className="fixed bottom-6 right-6 z-40 h-12 rounded-full px-5 shadow-lg"
-          aria-label="Ask AI Tutor"
+          aria-label={t("askAiTutor")}
         >
           <Sparkles className="h-5 w-5" />
-          Ask AI Tutor
+          {t("askAiTutor")}
         </Button>
       </DialogTrigger>
       <DialogContent className="flex max-h-[85vh] max-w-lg flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5" />
-            Socratic Tutor
+            {t("socraticTutor")}
           </DialogTitle>
-          <DialogDescription>
-            I&apos;ll guide you with questions and hints instead of handing you the
-            answer. English or 中文.
-          </DialogDescription>
+          <DialogDescription>{t("tutorDesc")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-2">
-          <Label htmlFor="tutor-topic">Topic</Label>
+          <Label htmlFor="tutor-topic">{t("topic")}</Label>
           <Input
             id="tutor-topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="e.g. IELTS writing task 2, Python loops"
+            placeholder={t("tutorTopicPlaceholder")}
           />
         </div>
 
         <div className="min-h-[220px] flex-1 space-y-3 overflow-y-auto rounded-lg border bg-muted/30 p-3">
           {messages.length === 0 && !streaming && (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Ask a question about your study topic, e.g. &quot;Why do my Python
-              loops skip items?&quot;
+              {t("tutorEmpty")}
             </p>
           )}
           {messages.map((message, index) => (
@@ -125,7 +121,7 @@ export function TutorDrawer() {
               {streaming || (
                 <span className="flex items-center gap-2 text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Thinking of a guiding question...
+                  {t("tutorThinking")}
                 </span>
               )}
             </div>
@@ -136,7 +132,7 @@ export function TutorDrawer() {
         <div className="flex gap-2">
           <Input
             value={input}
-            placeholder="Ask the tutor..."
+            placeholder={t("tutorPlaceholder")}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
@@ -152,7 +148,7 @@ export function TutorDrawer() {
             ) : (
               <Send className="h-4 w-4" />
             )}
-            Send
+            {t("send")}
           </Button>
         </div>
       </DialogContent>

@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getErrorMessage, resourcesApi, type RecommendedResource } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 
 export function ResourceRecommendations({ planId }: { planId: string }) {
+  const { t } = useLanguage();
   const [resources, setResources] = useState<RecommendedResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
   if (error) {
     return (
       <ErrorState
-        title="Could not load resources"
+        title={t("couldNotLoadResources")}
         message={error}
         onRetry={load}
       />
@@ -54,7 +56,7 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
   if (resources.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No recommendations yet. Try seeding the resource catalog.
+        {t("noRecommendations")}
       </p>
     );
   }
@@ -74,23 +76,23 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
           : null;
         const label =
           (resource.similarity_score ?? 0) >= 0.6
-            ? { text: "Highly relevant", className: "border-transparent bg-emerald-600 text-white hover:bg-emerald-600" }
+            ? { text: t("relevanceHigh"), className: "border-transparent bg-emerald-600 text-white hover:bg-emerald-600" }
             : (resource.similarity_score ?? 0) >= 0.4
-              ? { text: "Relevant", className: "border-transparent bg-amber-500 text-white hover:bg-amber-500" }
-              : { text: "Related", className: "text-muted-foreground" };
+              ? { text: t("relevanceMedium"), className: "border-transparent bg-amber-500 text-white hover:bg-amber-500" }
+              : { text: t("relevanceLow"), className: "text-muted-foreground" };
         const body = (
           <Card className="h-full transition-shadow hover:shadow-md">
             <CardContent className="space-y-2 p-4">
               <div className="flex flex-wrap items-center gap-1.5">
                 <Badge variant="secondary" className="capitalize">
-                  {resource.type ?? "resource"}
+                  {resource.type ?? t("resources")}
                 </Badge>
                 {resource.is_free ? (
                   <Badge className="border-transparent bg-emerald-600 text-white hover:bg-emerald-600">
-                    Free
+                    {t("free")}
                   </Badge>
                 ) : (
-                  <Badge variant="outline">Paid</Badge>
+                  <Badge variant="outline">{t("paid")}</Badge>
                 )}
                 {resource.level && (
                   <Badge variant="outline" className="capitalize">

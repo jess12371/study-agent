@@ -25,7 +25,7 @@ const LANGUAGES: { code: Language; label: string }[] = [
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const router = useRouter();
 
   const handleLogout = () => {
@@ -46,12 +46,12 @@ export function Navbar() {
         <div className="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Language">
+              <Button variant="ghost" size="icon" aria-label={t("language")}>
                 <Globe className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Language</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("language")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {LANGUAGES.map((item) => (
                 <DropdownMenuItem
@@ -91,7 +91,7 @@ export function Navbar() {
               <DropdownMenuItem asChild>
                 <Link href="/dashboard" className="cursor-pointer">
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  Dashboard
+                  {t("dashboard")}
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -100,17 +100,17 @@ export function Navbar() {
                 onClick={handleLogout}
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                Log out
+                {t("logOut")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         ) : (
           <div className="flex items-center gap-2">
             <Button variant="ghost" asChild>
-              <Link href="/login">Log in</Link>
+              <Link href="/login">{t("logIn")}</Link>
             </Button>
             <Button asChild>
-              <Link href="/signup">Sign up</Link>
+              <Link href="/signup">{t("signUp")}</Link>
             </Button>
           </div>
         )}

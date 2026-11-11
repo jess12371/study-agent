@@ -18,6 +18,18 @@ import {
   type ProgressStatus,
   type WeekSchedule,
 } from "@/lib/api";
+import type { TranslationKey } from "@/lib/dictionary";
+import { useLanguage } from "@/lib/language-context";
+
+const DAY_KEY: Record<string, TranslationKey> = {
+  Monday: "dayMonday",
+  Tuesday: "dayTuesday",
+  Wednesday: "dayWednesday",
+  Thursday: "dayThursday",
+  Friday: "dayFriday",
+  Saturday: "daySaturday",
+  Sunday: "daySunday",
+};
 
 interface FocusTarget {
   weekNumber: number;
@@ -49,7 +61,13 @@ export function WeekScheduleView({
   onGenerateNextMonth?: () => void;
   generatingNext?: boolean;
 }) {
+  const { t } = useLanguage();
   const [focus, setFocus] = useState<FocusTarget | null>(null);
+
+  const dayLabel = (day: string) => {
+    const key = DAY_KEY[day];
+    return key ? t(key) : day;
+  };
 
   const lastWeek = weeks[weeks.length - 1];
   const lastWeekTouched =
@@ -63,7 +81,7 @@ export function WeekScheduleView({
   if (weeks.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No weekly schedule available.
+        {t("weeklyScheduleEmpty")}
       </p>
     );
   }
@@ -75,7 +93,7 @@ export function WeekScheduleView({
           <TabsList className="h-auto flex-wrap">
             {weeks.map((week) => (
               <TabsTrigger key={week.week} value={`week-${week.week}`}>
-                Week {week.week}
+                {t("weekShort", { week: week.week })}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -88,7 +106,7 @@ export function WeekScheduleView({
             className="space-y-4"
           >
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Theme: </span>
+              <span className="font-medium text-foreground">{t("theme")} </span>
               {week.theme}
             </p>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -100,7 +118,9 @@ export function WeekScheduleView({
                   <Card key={`${week.week}-${session.day}-${index}`}>
                     <CardContent className="space-y-2 p-4">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold">{session.day}</span>
+                        <span className="font-semibold">
+                          {dayLabel(session.day)}
+                        </span>
                         <div className="flex items-center gap-1">
                           <Badge variant="outline" className="gap-1">
                             <Clock className="h-3 w-3" />
@@ -119,7 +139,7 @@ export function WeekScheduleView({
                       </div>
                       <p className="text-sm font-medium">{session.topic}</p>
                       <p className="text-xs text-muted-foreground">
-                        {session.duration_minutes} min
+                        {t("minutesShort", { minutes: session.duration_minutes })}
                       </p>
                       {session.activities.length > 0 && (
                         <ul className="space-y-1 text-xs text-muted-foreground">
@@ -145,7 +165,7 @@ export function WeekScheduleView({
                           }
                         >
                           <Timer className="h-4 w-4" />
-                          Start Focus
+                          {t("startFocus")}
                         </Button>
                         {planId && (
                           <QuizDialog
@@ -172,8 +192,7 @@ export function WeekScheduleView({
             {canGenerateNext ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  You&apos;ve reached the end of the scheduled month. Generate the
-                  next 4 weeks to keep going.
+                  {t("nextMonthReady")}
                 </p>
                 <Button
                   onClick={onGenerateNextMonth}
@@ -184,13 +203,12 @@ export function WeekScheduleView({
                   ) : (
                     <CalendarPlus className="h-4 w-4" />
                   )}
-                  Generate Next Month Schedule
+                  {t("generateNextMonth")}
                 </Button>
               </>
             ) : (
               <p className="text-sm text-muted-foreground">
-                Complete a session in Week {lastWeek?.week} to unlock next
-                month&apos;s schedule.
+                {t("nextMonthHint", { week: lastWeek?.week ?? 0 })}
               </p>
             )}
           </div>

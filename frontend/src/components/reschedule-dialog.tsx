@@ -32,6 +32,7 @@ import {
   type RescheduleOptionType,
   type RescheduleResult,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
 const OPTION_ICONS: Record<RescheduleOptionType, typeof Shuffle> = {
@@ -48,6 +49,7 @@ export function RescheduleDialog({
   planId: string;
   onApplied: (result: RescheduleResult) => void;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export function RescheduleDialog({
       const result = await rescheduleApi.apply(planId, {
         option_type: selected,
       });
-      toast.success(`Plan updated to version v${result.version}.`);
+      toast.success(t("planUpdatedVersion", { version: result.version }));
       onApplied(result);
       setOpen(false);
     } catch (err) {
@@ -99,16 +101,13 @@ export function RescheduleDialog({
       <DialogTrigger asChild>
         <Button>
           <Sparkles className="h-4 w-4" />
-          Adapt Plan
+          {t("adaptPlan")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Adapt your study plan</DialogTitle>
-          <DialogDescription>
-            Pick a strategy and Study Agent will rebuild your plan while keeping
-            your old version for history.
-          </DialogDescription>
+          <DialogTitle>{t("adaptPlanTitle")}</DialogTitle>
+          <DialogDescription>{t("adaptPlanDesc")}</DialogDescription>
         </DialogHeader>
 
         {loading && (
@@ -121,7 +120,7 @@ export function RescheduleDialog({
 
         {!loading && error && (
           <ErrorState
-            title="Could not analyze your plan"
+            title={t("couldNotAnalyze")}
             message={error}
             onRetry={loadAnalysis}
           />
@@ -132,12 +131,13 @@ export function RescheduleDialog({
             <div className="rounded-lg border bg-muted/40 p-4 text-sm">
               <div className="mb-1 flex flex-wrap items-center gap-2">
                 <Badge variant="secondary">
-                  {Math.round(analysis.completion_rate * 100)}% complete
+                  {t("percentComplete", {
+                    percent: Math.round(analysis.completion_rate * 100),
+                  })}
                 </Badge>
                 {analysis.weeks_behind > 0 && (
                   <Badge variant="outline">
-                    {analysis.weeks_behind} week
-                    {analysis.weeks_behind > 1 ? "s" : ""} behind
+                    {t("weeksBehind", { count: analysis.weeks_behind })}
                   </Badge>
                 )}
               </div>
@@ -168,11 +168,11 @@ export function RescheduleDialog({
                       {option.description}
                     </p>
                     <p className="mt-2 text-xs text-amber-600">
-                      Trade-off: {option.trade_offs}
+                      {t("tradeOff")}: {option.trade_offs}
                     </p>
                     {option.estimated_new_deadline && (
                       <p className="mt-1 text-xs text-muted-foreground">
-                        New deadline: {option.estimated_new_deadline}
+                        {t("newDeadline")}: {option.estimated_new_deadline}
                       </p>
                     )}
                   </button>
@@ -188,11 +188,11 @@ export function RescheduleDialog({
             onClick={() => setOpen(false)}
             disabled={applying}
           >
-            Cancel
+            {t("cancel")}
           </Button>
           <Button onClick={handleApply} disabled={!selected || applying}>
             {applying && <Loader2 className="h-4 w-4 animate-spin" />}
-            Apply selected
+            {t("applySelected")}
           </Button>
         </DialogFooter>
       </DialogContent>

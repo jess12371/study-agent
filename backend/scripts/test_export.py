@@ -106,6 +106,37 @@ def main() -> None:
     check("jumlah VEVENT = 3", text.count("BEGIN:VEVENT") == 3, f"n={text.count('BEGIN:VEVENT')}")
     check("VEVENT punya SUMMARY sesi", "[Study] Install Python" in text)
     check("VEVENT punya DTSTART", "DTSTART" in text)
+    check(
+        "setiap VEVENT punya VALARM",
+        text.count("BEGIN:VALARM") == 3,
+        f"n={text.count('BEGIN:VALARM')}",
+    )
+    check("VALARM TRIGGER -PT15M", "TRIGGER:-PT15M" in text)
+    check("VALARM ACTION DISPLAY", "ACTION:DISPLAY" in text)
+    check("reminder default EN", "starts in 15 minutes" in text)
+
+    # Validasi struktur ICS dengan parser icalendar.
+    try:
+        from icalendar import Calendar
+
+        parsed = Calendar.from_ical(text)
+        alarms = [
+            component
+            for event in parsed.walk("VEVENT")
+            for component in event.walk("VALARM")
+        ]
+        check("ICS valid & bisa diparse", len(parsed.walk("VEVENT")) == 3)
+        check("parser menemukan 3 VALARM", len(alarms) == 3, f"n={len(alarms)}")
+    except Exception as exc:  # noqa: BLE001
+        check("ICS valid & bisa diparse", False, str(exc))
+
+    # Reminder ikut bahasa yang dipilih.
+    ics_id = client.get(
+        f"/api/plans/{plan_id}/export/ics",
+        headers=auth,
+        params={"language": "id"},
+    )
+    check("reminder bahasa Indonesia", "15 menit lagi" in ics_id.text)
 
     # Alias endpoint sesuai spesifikasi: /export-ics
     ics_alias = client.get(f"/api/plans/{plan_id}/export-ics", headers=auth)

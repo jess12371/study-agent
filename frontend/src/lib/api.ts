@@ -445,17 +445,19 @@ export const exportApi = {
         responseType: "blob",
       })
     ).data,
-  ics: async (planId: string): Promise<Blob> =>
+  ics: async (planId: string, language?: string): Promise<Blob> =>
     (
       await api.get<Blob>(`/api/plans/${planId}/export/ics`, {
         responseType: "blob",
+        params: language ? { language } : undefined,
       })
     ).data,
   // Alias sesuai spesifikasi: /api/plans/:id/export-ics
-  icsAlias: async (planId: string): Promise<Blob> =>
+  icsAlias: async (planId: string, language?: string): Promise<Blob> =>
     (
       await api.get<Blob>(`/api/plans/${planId}/export-ics`, {
         responseType: "blob",
+        params: language ? { language } : undefined,
       })
     ).data,
 };

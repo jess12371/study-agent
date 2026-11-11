@@ -11,12 +11,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { PlanVersion } from "@/lib/api";
+import type { TranslationKey } from "@/lib/dictionary";
+import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
-const REASON_LABEL: Record<string, string> = {
-  initial: "Initial",
-  reschedule: "Reschedule",
-  regenerate: "Regenerate",
+const REASON_KEY: Record<string, TranslationKey> = {
+  initial: "reasonInitial",
+  reschedule: "reasonReschedule",
+  regenerate: "reasonRegenerate",
+};
+
+const STATUS_KEY: Record<string, TranslationKey> = {
+  active: "statusActive",
+  superseded: "statusSuperseded",
 };
 
 export function PlanHistory({
@@ -30,17 +37,21 @@ export function PlanHistory({
   onSelect: (version: number) => void;
   disabled?: boolean;
 }) {
+  const { t } = useLanguage();
+
   if (versions.length === 0) return null;
 
   return (
     <Card>
       <CardHeader className="flex-row items-center gap-2 space-y-0">
         <History className="h-4 w-4 text-muted-foreground" />
-        <CardTitle className="text-base">Plan History</CardTitle>
+        <CardTitle className="text-base">{t("planHistory")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {versions.map((item) => {
           const active = item.version === activeVersion;
+          const statusKey = STATUS_KEY[item.status];
+          const reasonKey = REASON_KEY[item.reason];
           return (
             <button
               key={item.plan_id}
@@ -56,12 +67,14 @@ export function PlanHistory({
               )}
             >
               <div className="flex items-center gap-2">
-                <span className="font-semibold">v{item.version}</span>
+                <span className="font-semibold">
+                  {t("versionShort", { version: item.version })}
+                </span>
                 <Badge variant={item.status === "active" ? "default" : "secondary"}>
-                  {item.status}
+                  {statusKey ? t(statusKey) : item.status}
                 </Badge>
                 <span className="text-xs text-muted-foreground">
-                  {REASON_LABEL[item.reason] ?? item.reason}
+                  {reasonKey ? t(reasonKey) : item.reason}
                 </span>
               </div>
               <span className="text-xs text-muted-foreground">

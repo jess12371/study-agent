@@ -32,6 +32,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { goalsApi, getErrorMessage } from "@/lib/api";
+import type { TranslationKey } from "@/lib/dictionary";
+import { useLanguage } from "@/lib/language-context";
 
 import {
   LEVEL_OPTIONS,
@@ -41,20 +43,62 @@ import {
   useGoalForm,
 } from "./use-goal-form";
 
-const STEP_TITLES = [
-  "What do you want to learn?",
-  "When do you want to reach it?",
-  "Your availability",
-  "Review & confirm",
+const STEP_TITLE_KEYS: TranslationKey[] = [
+  "step1Title",
+  "step2Title",
+  "step3Title",
+  "step4Title",
 ];
 
+const LEVEL_KEYS: Record<string, TranslationKey> = {
+  None: "levelNone",
+  Beginner: "levelBeginner",
+  Intermediate: "levelIntermediate",
+  Advanced: "levelAdvanced",
+};
+
+const STUDY_TIME_KEYS: Record<string, TranslationKey> = {
+  morning: "studyMorning",
+  afternoon: "studyAfternoon",
+  evening: "studyEvening",
+  flexible: "studyFlexible",
+};
+
+const DAY_KEYS: Record<string, TranslationKey> = {
+  monday: "dayMonday",
+  tuesday: "dayTuesday",
+  wednesday: "dayWednesday",
+  thursday: "dayThursday",
+  friday: "dayFriday",
+  saturday: "daySaturday",
+  sunday: "daySunday",
+};
+
+const ERROR_KEYS: Record<string, TranslationKey> = {
+  "Topic is required.": "validationTopic",
+  "Select your current level.": "validationLevel",
+  "Target is required.": "validationTarget",
+  "Enter a whole number of months.": "validationDeadline",
+  "At least 1 month.": "validationDeadline",
+  "At most 36 months.": "validationDeadline",
+  "Select at least one working day.": "validationWorkDays",
+  "Select a preferred study time.": "validationStudyTime",
+};
+
 function FieldError({ message }: { message?: string }) {
+  const { t } = useLanguage();
   if (!message) return null;
-  return <p className="text-sm font-medium text-destructive">{message}</p>;
+  const key = ERROR_KEYS[message];
+  return (
+    <p className="text-sm font-medium text-destructive">
+      {key ? t(key) : message}
+    </p>
+  );
 }
 
 function GoalForm() {
   const router = useRouter();
+  const { t } = useLanguage();
   const {
     step,
     data,
@@ -71,7 +115,7 @@ function GoalForm() {
     setSubmitting(true);
     try {
       const goal = await goalsApi.create({ ...data });
-      toast.success("Goal created! Let's check if it's realistic.");
+      toast.success(t("goalCreated"));
       reset();
       router.push(`/goals/${goal.id}`);
     } catch (error) {
@@ -86,20 +130,22 @@ function GoalForm() {
       <div className="space-y-2">
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium">
-            Step {step} of {TOTAL_STEPS}
+            {t("stepOf", { step, total: TOTAL_STEPS })}
           </span>
-          <span className="text-muted-foreground">{STEP_TITLES[step - 1]}</span>
+          <span className="text-muted-foreground">
+            {t(STEP_TITLE_KEYS[step - 1])}
+          </span>
         </div>
         <Progress value={(step / TOTAL_STEPS) * 100} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl">{STEP_TITLES[step - 1]}</CardTitle>
+          <CardTitle className="text-2xl">
+            {t(STEP_TITLE_KEYS[step - 1])}
+          </CardTitle>
           <CardDescription>
-            {step === 4
-              ? "Make sure everything looks right, then create your goal."
-              : "Fill in the details below to build your personalized plan."}
+            {step === 4 ? t("reviewDesc") : t("stepDesc")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -107,28 +153,28 @@ function GoalForm() {
           {step === 1 && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="topic">Topic</Label>
+                <Label htmlFor="topic">{t("topic")}</Label>
                 <Input
                   id="topic"
-                  placeholder="e.g. Mandarin Chinese"
+                  placeholder={t("topicPlaceholder")}
                   value={data.topic}
                   onChange={(e) => setField("topic", e.target.value)}
                 />
                 <FieldError message={errors.topic} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="level">Current level</Label>
+                <Label htmlFor="level">{t("currentLevel")}</Label>
                 <Select
                   value={data.current_level}
                   onValueChange={(value) => setField("current_level", value)}
                 >
                   <SelectTrigger id="level">
-                    <SelectValue placeholder="Select your current level" />
+                    <SelectValue placeholder={t("selectLevel")} />
                   </SelectTrigger>
                   <SelectContent>
                     {LEVEL_OPTIONS.map((level) => (
                       <SelectItem key={level} value={level}>
-                        {level}
+                        {t(LEVEL_KEYS[level] ?? "levelNone")}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -136,10 +182,10 @@ function GoalForm() {
                 <FieldError message={errors.current_level} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="target">Target</Label>
+                <Label htmlFor="target">{t("target")}</Label>
                 <Input
                   id="target"
-                  placeholder='e.g. "HSK 4 score 250"'
+                  placeholder={t("targetPlaceholder")}
                   value={data.target}
                   onChange={(e) => setField("target", e.target.value)}
                 />
@@ -151,7 +197,7 @@ function GoalForm() {
           {/* Step 2 */}
           {step === 2 && (
             <div className="space-y-2">
-              <Label htmlFor="deadline">Deadline (months)</Label>
+              <Label htmlFor="deadline">{t("deadlineMonthsLabel")}</Label>
               <Input
                 id="deadline"
                 type="number"
@@ -164,7 +210,7 @@ function GoalForm() {
               />
               <FieldError message={errors.deadline_months} />
               <p className="text-sm text-muted-foreground">
-                Between 1 and 36 months.
+                {t("deadlineHint")}
               </p>
             </div>
           )}
@@ -174,7 +220,7 @@ function GoalForm() {
             <div className="space-y-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="work-start">Work starts</Label>
+                  <Label htmlFor="work-start">{t("workStarts")}</Label>
                   <Input
                     id="work-start"
                     type="time"
@@ -184,7 +230,7 @@ function GoalForm() {
                   <FieldError message={errors.work_hours_start} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="work-end">Work ends</Label>
+                  <Label htmlFor="work-end">{t("workEnds")}</Label>
                   <Input
                     id="work-end"
                     type="time"
@@ -196,18 +242,18 @@ function GoalForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>Working days</Label>
+                <Label>{t("workingDays")}</Label>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {WORK_DAY_OPTIONS.map((day) => (
                     <label
                       key={day}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm capitalize"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm"
                     >
                       <Checkbox
                         checked={data.work_days.includes(day)}
                         onCheckedChange={() => toggleWorkDay(day)}
                       />
-                      {day}
+                      {t(DAY_KEYS[day])}
                     </label>
                   ))}
                 </div>
@@ -215,7 +261,7 @@ function GoalForm() {
               </div>
 
               <div className="space-y-2">
-                <Label>Preferred study time</Label>
+                <Label>{t("preferredStudyTime")}</Label>
                 <RadioGroup
                   value={data.preferred_study_time}
                   onValueChange={(value) =>
@@ -226,10 +272,10 @@ function GoalForm() {
                   {STUDY_TIME_OPTIONS.map((option) => (
                     <label
                       key={option}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm capitalize"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm"
                     >
                       <RadioGroupItem value={option} />
-                      {option}
+                      {t(STUDY_TIME_KEYS[option])}
                     </label>
                   ))}
                 </RadioGroup>
@@ -238,9 +284,11 @@ function GoalForm() {
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Max session length</Label>
+                  <Label>{t("maxSession")}</Label>
                   <span className="text-sm font-medium">
-                    {data.max_session_minutes} min
+                    {t("maxSessionMin", {
+                      minutes: data.max_session_minutes,
+                    })}
                   </span>
                 </div>
                 <Slider
@@ -262,67 +310,83 @@ function GoalForm() {
             <div className="space-y-4">
               <div className="grid gap-3 text-sm">
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Topic</span>
+                  <span className="text-muted-foreground">{t("topic")}</span>
                   <span className="text-right font-medium">{data.topic}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Current level</span>
+                  <span className="text-muted-foreground">
+                    {t("currentLevel")}
+                  </span>
                   <span className="text-right font-medium">
-                    {data.current_level}
+                    {t(LEVEL_KEYS[data.current_level] ?? "levelNone")}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Target</span>
+                  <span className="text-muted-foreground">{t("target")}</span>
                   <span className="text-right font-medium">{data.target}</span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Deadline</span>
+                  <span className="text-muted-foreground">
+                    {t("deadlineMonthsLabel")}
+                  </span>
                   <span className="text-right font-medium">
-                    {data.deadline_months} month
-                    {data.deadline_months > 1 ? "s" : ""}
+                    {t(
+                      data.deadline_months > 1
+                        ? "deadlineMonthsPlural"
+                        : "deadlineMonths",
+                      { count: data.deadline_months }
+                    )}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Work hours</span>
+                  <span className="text-muted-foreground">
+                    {t("workStarts")} – {t("workEnds")}
+                  </span>
                   <span className="text-right font-medium">
                     {data.work_hours_start}–{data.work_hours_end}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
-                  <span className="text-muted-foreground">Working days</span>
+                  <span className="text-muted-foreground">
+                    {t("workingDays")}
+                  </span>
                   <div className="flex flex-wrap justify-end gap-1">
-                    {[...data.work_days].sort(
-                      (a, b) =>
-                        WORK_DAY_OPTIONS.indexOf(a as never) -
-                        WORK_DAY_OPTIONS.indexOf(b as never)
-                    ).map((day) => (
-                      <Badge key={day} variant="secondary" className="capitalize">
-                        {day.slice(0, 3)}
-                      </Badge>
-                    ))}
+                    {[...data.work_days]
+                      .sort(
+                        (a, b) =>
+                          WORK_DAY_OPTIONS.indexOf(a as never) -
+                          WORK_DAY_OPTIONS.indexOf(b as never)
+                      )
+                      .map((day) => (
+                        <Badge key={day} variant="secondary">
+                          {t(DAY_KEYS[day])}
+                        </Badge>
+                      ))}
                   </div>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">
-                    Preferred study time
+                    {t("preferredStudyTime")}
                   </span>
-                  <span className="text-right font-medium capitalize">
-                    {data.preferred_study_time}
+                  <span className="text-right font-medium">
+                    {t(STUDY_TIME_KEYS[data.preferred_study_time])}
                   </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">
-                    Max session length
+                    {t("maxSession")}
                   </span>
                   <span className="text-right font-medium">
-                    {data.max_session_minutes} min
+                    {t("maxSessionMin", {
+                      minutes: data.max_session_minutes,
+                    })}
                   </span>
                 </div>
               </div>
@@ -339,12 +403,12 @@ function GoalForm() {
               disabled={step === 1 || submitting}
             >
               <ArrowLeft className="h-4 w-4" />
-              Back
+              {t("back")}
             </Button>
 
             {step < TOTAL_STEPS ? (
               <Button type="button" onClick={() => nextStep()}>
-                Next
+                {t("next")}
                 <ArrowRight className="h-4 w-4" />
               </Button>
             ) : (
@@ -354,7 +418,7 @@ function GoalForm() {
                 ) : (
                   <Check className="h-4 w-4" />
                 )}
-                Create Goal
+                {t("createGoalButton")}
               </Button>
             )}
           </div>

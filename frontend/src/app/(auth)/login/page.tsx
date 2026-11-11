@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { GraduationCap, Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
@@ -30,18 +30,24 @@ import {
 import { Input } from "@/components/ui/input";
 import { authApi, getErrorMessage } from "@/lib/api";
 import { useAuth } from "@/lib/hooks/use-auth";
+import { useLanguage } from "@/lib/language-context";
 
-const loginSchema = z.object({
-  email: z.string().email("Enter a valid email address."),
-  password: z.string().min(1, "Password is required."),
-});
-
-type LoginValues = z.infer<typeof loginSchema>;
+type LoginValues = { email: string; password: string };
 
 export default function LoginPage() {
   const router = useRouter();
   const { setAuth, isAuthenticated, isHydrated } = useAuth();
+  const { t } = useLanguage();
   const [submitting, setSubmitting] = useState(false);
+
+  const loginSchema = useMemo(
+    () =>
+      z.object({
+        email: z.string().email(t("validationEmail")),
+        password: z.string().min(1, t("validationPasswordRequired")),
+      }),
+    [t]
+  );
 
   const form = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
@@ -60,7 +66,7 @@ export default function LoginPage() {
     try {
       const data = await authApi.login(values);
       setAuth(data.access_token, data.user);
-      toast.success("Welcome back!");
+      toast.success(t("loginSuccess"));
       router.push("/dashboard");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -76,8 +82,8 @@ export default function LoginPage() {
           <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-lg bg-primary/10">
             <GraduationCap className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle>Welcome back</CardTitle>
-          <CardDescription>Log in to continue your study plan.</CardDescription>
+          <CardTitle>{t("loginTitle")}</CardTitle>
+          <CardDescription>{t("loginSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -87,11 +93,11 @@ export default function LoginPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("email")}</FormLabel>
                     <FormControl>
                       <Input
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder={t("emailPlaceholder")}
                         autoComplete="email"
                         {...field}
                       />
@@ -105,11 +111,11 @@ export default function LoginPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{t("password")}</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        placeholder="••••••••"
+                        placeholder={t("passwordPlaceholder")}
                         autoComplete="current-password"
                         {...field}
                       />
@@ -120,15 +126,15 @@ export default function LoginPage() {
               />
               <Button type="submit" className="w-full" disabled={submitting}>
                 {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Log in
+                {t("loginButton")}
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="justify-center text-sm text-muted-foreground">
-          Don&apos;t have an account?&nbsp;
+          {t("noAccount")}&nbsp;
           <Link href="/signup" className="font-medium text-primary hover:underline">
-            Sign up
+            {t("signupLink")}
           </Link>
         </CardFooter>
       </Card>

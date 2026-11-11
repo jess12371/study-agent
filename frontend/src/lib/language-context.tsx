@@ -1,4 +1,4 @@
-// Language context (EN / ID / ZH) — disimpan di localStorage.
+// Language context (EN / ID / ZH) — disimpan di localStorage + helper t().
 "use client";
 
 import {
@@ -9,14 +9,26 @@ import {
   useState,
 } from "react";
 
-export type Language = "en" | "id" | "zh";
+import { dict, type Language, type TranslationKey } from "@/lib/dictionary";
+
+export type { Language };
 
 const STORAGE_KEY = "sa_language";
+
+type Translate = (
+  key: TranslationKey,
+  vars?: Record<string, string | number>
+) => string;
 
 const LanguageContext = createContext<{
   language: Language;
   setLanguage: (language: Language) => void;
-}>({ language: "en", setLanguage: () => {} });
+  t: Translate;
+}>({
+  language: "en",
+  setLanguage: () => {},
+  t: (key) => dict.en[key] ?? key,
+});
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<Language>("en");
@@ -33,8 +45,22 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem(STORAGE_KEY, next);
   }, []);
 
+  const t = useCallback<Translate>(
+    (key, vars) => {
+      const table = dict[language] ?? dict.en;
+      let text: string = table[key] ?? dict.en[key] ?? key;
+      if (vars) {
+        for (const [name, value] of Object.entries(vars)) {
+          text = text.split(`{${name}}`).join(String(value));
+        }
+      }
+      return text;
+    },
+    [language]
+  );
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

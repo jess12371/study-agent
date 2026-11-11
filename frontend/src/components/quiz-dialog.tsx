@@ -21,6 +21,7 @@ import {
   tutorApi,
   type QuizQuestion,
 } from "@/lib/api";
+import { useLanguage } from "@/lib/language-context";
 import { cn } from "@/lib/utils";
 
 export function QuizDialog({
@@ -32,6 +33,7 @@ export function QuizDialog({
   weekNumber: number;
   dayName: string;
 }) {
+  const { t } = useLanguage();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
@@ -96,7 +98,7 @@ export function QuizDialog({
         total_questions: questions.length,
       });
       setSaved(true);
-      toast.success("Quiz score saved!");
+      toast.success(t("scoreSaved"));
       window.setTimeout(() => {
         setOpen(false);
         setSaved(false);
@@ -113,17 +115,19 @@ export function QuizDialog({
       <DialogTrigger asChild>
         <Button size="sm" variant="outline">
           <Brain className="h-4 w-4" />
-          Quiz Me
+          {t("quizMe")}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Brain className="h-5 w-5" />
-            Quiz Me
+            {t("quizMe")}
           </DialogTitle>
           <DialogDescription>
-            {quizTopic ? `Topic: ${quizTopic}` : "Generating questions from your schedule..."}
+            {quizTopic
+              ? `${t("topic")}: ${quizTopic}`
+              : t("loadingQuestions")}
           </DialogDescription>
         </DialogHeader>
 
@@ -141,14 +145,14 @@ export function QuizDialog({
             </p>
             <p className="text-sm text-muted-foreground">
               {score === questions.length
-                ? "Perfect score — excellent work!"
-                : "Keep practicing. Review the explanations and try again."}
+                ? t("perfectScore")
+                : t("keepPracticing")}
             </p>
 
             {saved ? (
               <div className="flex flex-col items-center gap-2 py-2 text-emerald-600 animate-in fade-in zoom-in duration-300">
                 <CheckCircle2 className="h-9 w-9" />
-                <p className="font-medium">Skor tersimpan!</p>
+                <p className="font-medium">{t("scoreSaved")}</p>
               </div>
             ) : (
               <div className="flex flex-col justify-center gap-2 sm:flex-row">
@@ -158,11 +162,11 @@ export function QuizDialog({
                   ) : (
                     <Save className="h-4 w-4" />
                   )}
-                  Simpan Hasil &amp; Selesai
+                  {t("saveResults")}
                 </Button>
                 <Button onClick={loadQuiz} variant="outline" disabled={saving}>
                   <RotateCcw className="h-4 w-4" />
-                  Try again
+                  {t("tryAgain")}
                 </Button>
               </div>
             )}
@@ -170,7 +174,10 @@ export function QuizDialog({
         ) : current ? (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Question {index + 1} of {questions.length}
+              {t("questionOf", {
+                current: index + 1,
+                total: questions.length,
+              })}
             </p>
             <p className="font-medium">{current.question}</p>
 
@@ -209,19 +216,21 @@ export function QuizDialog({
 
             {answered && (
               <div className="rounded-lg border bg-muted/40 p-3 text-sm">
-                <span className="font-medium">Explanation: </span>
+                <span className="font-medium">{t("explanation")}: </span>
                 {current.explanation}
               </div>
             )}
 
             <div className="flex justify-end">
               <Button onClick={next} disabled={!answered}>
-                {index + 1 >= questions.length ? "See results" : "Next"}
+                {index + 1 >= questions.length
+                  ? t("seeResults")
+                  : t("nextQuestion")}
               </Button>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No questions available.</p>
+          <p className="text-sm text-muted-foreground">{t("noQuestions")}</p>
         )}
       </DialogContent>
     </Dialog>
