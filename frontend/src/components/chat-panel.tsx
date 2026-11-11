@@ -37,7 +37,8 @@ export function ChatPanel({
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      setMessages(await chatApi.history(goalId));
+      const history = await chatApi.history(goalId);
+      setMessages(Array.isArray(history) ? history : []);
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

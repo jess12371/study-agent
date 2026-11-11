@@ -63,22 +63,23 @@ export function WeekScheduleView({
 }) {
   const { t } = useLanguage();
   const [focus, setFocus] = useState<FocusTarget | null>(null);
+  const safeWeeks = Array.isArray(weeks) ? weeks : [];
 
   const dayLabel = (day: string) => {
     const key = DAY_KEY[day];
     return key ? t(key) : day;
   };
 
-  const lastWeek = weeks[weeks.length - 1];
+  const lastWeek = safeWeeks[safeWeeks.length - 1];
   const lastWeekTouched =
-    lastWeek?.days.some((session, index) => {
+    lastWeek?.days?.some((session, index) => {
       const key = progressSessionKey(lastWeek.week, session.day, index);
       const status = progress?.[key]?.status;
       return status === "completed" || status === "skipped";
     }) ?? false;
-  const canGenerateNext = weeks.length % 4 === 0 && lastWeekTouched;
+  const canGenerateNext = safeWeeks.length % 4 === 0 && lastWeekTouched;
 
-  if (weeks.length === 0) {
+  if (safeWeeks.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
         {t("weeklyScheduleEmpty")}
@@ -88,10 +89,10 @@ export function WeekScheduleView({
 
   return (
     <>
-      <Tabs defaultValue={`week-${weeks[0].week}`} className="w-full">
+      <Tabs defaultValue={`week-${safeWeeks[0].week}`} className="w-full">
         <div className="overflow-x-auto pb-1">
           <TabsList className="h-auto flex-wrap">
-            {weeks.map((week) => (
+            {safeWeeks.map((week) => (
               <TabsTrigger key={week.week} value={`week-${week.week}`}>
                 {t("weekShort", { week: week.week })}
               </TabsTrigger>
@@ -99,7 +100,7 @@ export function WeekScheduleView({
           </TabsList>
         </div>
 
-        {weeks.map((week) => (
+        {safeWeeks.map((week) => (
           <TabsContent
             key={week.week}
             value={`week-${week.week}`}
@@ -110,7 +111,7 @@ export function WeekScheduleView({
               {week.theme}
             </p>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {week.days.map((session, index) => {
+              {(Array.isArray(week.days) ? week.days : []).map((session, index) => {
                 const key = progressSessionKey(week.week, session.day, index);
                 const entry = progress?.[key];
                 const status: ProgressStatus = entry?.status ?? "pending";
@@ -141,7 +142,8 @@ export function WeekScheduleView({
                       <p className="text-xs text-muted-foreground">
                         {t("minutesShort", { minutes: session.duration_minutes })}
                       </p>
-                      {session.activities.length > 0 && (
+                      {Array.isArray(session.activities) &&
+                        session.activities.length > 0 && (
                         <ul className="space-y-1 text-xs text-muted-foreground">
                           {session.activities.map((activity, i) => (
                             <li key={i} className="flex gap-1.5">
@@ -186,8 +188,8 @@ export function WeekScheduleView({
 
       {typeof totalWeeks === "number" &&
         totalWeeks > 0 &&
-        weeks.length < totalWeeks &&
-        weeks.length % 4 === 0 && (
+        safeWeeks.length < totalWeeks &&
+        safeWeeks.length % 4 === 0 && (
           <div className="mt-4 space-y-2 rounded-xl border border-dashed p-4 text-center">
             {canGenerateNext ? (
               <>

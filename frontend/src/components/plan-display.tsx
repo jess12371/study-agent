@@ -45,6 +45,11 @@ export function PlanDisplay({
   generatingNext?: boolean;
 }) {
   const { t } = useLanguage();
+  const milestones = Array.isArray(plan.milestones) ? plan.milestones : [];
+  const weeklySchedule = Array.isArray(plan.weekly_schedule)
+    ? plan.weekly_schedule
+    : [];
+  const resources = Array.isArray(plan.resources) ? plan.resources : [];
 
   return (
     <div className="space-y-8">
@@ -70,11 +75,11 @@ export function PlanDisplay({
       </Card>
 
       {/* Milestones */}
-      {plan.milestones.length > 0 && (
+      {milestones.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{t("milestones")}</h2>
           <div className="space-y-4">
-            {plan.milestones.map((milestone, index) => (
+            {milestones.map((milestone, index) => (
               <MilestoneCard
                 key={`${milestone.month}-${index}`}
                 milestone={milestone}
@@ -88,11 +93,11 @@ export function PlanDisplay({
       <Separator />
 
       {/* Weekly schedule */}
-      {plan.weekly_schedule.length > 0 && (
+      {weeklySchedule.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{t("weeklySchedule")}</h2>
           <WeekScheduleView
-            weeks={plan.weekly_schedule}
+            weeks={weeklySchedule}
             progress={progress}
             onMark={onMark}
             updating={updating}
@@ -107,11 +112,11 @@ export function PlanDisplay({
       <Separator />
 
       {/* Resources */}
-      {plan.resources.length > 0 && (
+      {resources.length > 0 && (
         <section className="space-y-4">
           <h2 className="text-xl font-semibold">{t("resources")}</h2>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {plan.resources.map((resource, index) => (
+            {resources.map((resource, index) => (
               <Card key={`${resource.name}-${index}`}>
                 <CardContent className="space-y-2 p-4">
                   <div className="flex items-center justify-between gap-2">

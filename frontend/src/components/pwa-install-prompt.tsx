@@ -18,12 +18,15 @@ export function PwaInstallPrompt() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(DISMISS_KEY) === "1") return;
-
-    const visits = Number(localStorage.getItem(VISITS_KEY) ?? "0") + 1;
-    localStorage.setItem(VISITS_KEY, String(visits));
-    // Tampilkan kalau installable dan user sudah membuka app minimal 2x.
-    if (visits >= 2) setVisible(true);
+    try {
+      if (localStorage.getItem(DISMISS_KEY) === "1") return;
+      const visits = Number(localStorage.getItem(VISITS_KEY) ?? "0") + 1;
+      localStorage.setItem(VISITS_KEY, String(visits));
+      // Tampilkan kalau installable dan user sudah membuka app minimal 2x.
+      if (visits >= 2) setVisible(true);
+    } catch {
+      /* localStorage bisa diblokir */
+    }
   }, []);
 
   if (!visible || !canInstall || installed) return null;
@@ -34,7 +37,11 @@ export function PwaInstallPrompt() {
   };
 
   const handleLater = () => {
-    localStorage.setItem(DISMISS_KEY, "1");
+    try {
+      localStorage.setItem(DISMISS_KEY, "1");
+    } catch {
+      /* abaikan */
+    }
     setVisible(false);
   };
 

@@ -21,7 +21,8 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
     setLoading(true);
     setError(null);
     try {
-      setResources(await resourcesApi.recommend(planId));
+      const data = await resourcesApi.recommend(planId);
+      setResources(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -61,8 +62,10 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
     );
   }
 
+  const safeResources = Array.isArray(resources) ? resources : [];
+
   // Sort by similarity desc, filter < 40%, fallback ke 5 teratas kalau terlalu sedikit.
-  const sorted = [...resources].sort(
+  const sorted = [...safeResources].sort(
     (a, b) => (b.similarity_score ?? 0) - (a.similarity_score ?? 0)
   );
   const filtered = sorted.filter((r) => (r.similarity_score ?? 0) >= 0.4);
@@ -118,9 +121,9 @@ export function ResourceRecommendations({ planId }: { planId: string }) {
                   {resource.description}
                 </p>
               )}
-              {resource.skills.length > 0 && (
+              {(resource.skills?.length ?? 0) > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
-                  {resource.skills.slice(0, 3).map((skill) => (
+                  {(resource.skills ?? []).slice(0, 3).map((skill) => (
                     <span
                       key={skill}
                       className="rounded bg-muted px-1.5 py-0.5 text-[10px] capitalize text-muted-foreground"

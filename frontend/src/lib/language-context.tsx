@@ -27,28 +27,39 @@ const LanguageContext = createContext<{
 }>({
   language: "en",
   setLanguage: () => {},
-  t: (key) => dict.en[key] ?? key,
+  t: (key) => dict.en[key] ?? String(key),
 });
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLang] = useState<Language>("en");
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "en" || saved === "id" || saved === "zh") {
-      setLang(saved);
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved === "en" || saved === "id" || saved === "zh") {
+        setLang(saved);
+      }
+    } catch {
+      /* localStorage bisa diblokir di mode privat / in-app browser */
     }
   }, []);
 
   const setLanguage = useCallback((next: Language) => {
     setLang(next);
-    localStorage.setItem(STORAGE_KEY, next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next);
+    } catch {
+      /* abaikan — bahasa tetap dipakai untuk sesi ini */
+    }
   }, []);
 
   const t = useCallback<Translate>(
     (key, vars) => {
       const table = dict[language] ?? dict.en;
-      let text: string = table[key] ?? dict.en[key] ?? key;
+      const value = table[key] ?? dict.en[key];
+      // Jangan pernah mengembalikan undefined: React akan melempar error
+      // kalau sebuah child bukan string/angka/element yang valid.
+      let text = typeof value === "string" ? value : String(key);
       if (vars) {
         for (const [name, value] of Object.entries(vars)) {
           text = text.split(`{${name}}`).join(String(value));

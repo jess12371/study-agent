@@ -132,6 +132,38 @@ export interface PlanResponse {
   reason: string;
 }
 
+// Normalisasi plan dari API / cache lama agar komponen tidak crash karena
+// field array yang hilang (mis. plan lama tanpa `resources` atau `days`).
+export function normalizePlan(plan: PlanResponse): PlanResponse {
+  const raw = (plan ?? {}) as Partial<PlanResponse>;
+  return {
+    ...(plan as PlanResponse),
+    plan_id: raw.plan_id ?? "",
+    goal_summary: raw.goal_summary ?? "",
+    total_weeks: Number(raw.total_weeks) || 0,
+    milestones: Array.isArray(raw.milestones)
+      ? raw.milestones.filter((item) => item && typeof item === "object")
+      : [],
+    weekly_schedule: Array.isArray(raw.weekly_schedule)
+      ? raw.weekly_schedule
+          .filter((week) => week && typeof week === "object")
+          .map((week) => ({
+            ...week,
+            days: Array.isArray(week?.days)
+              ? week.days.filter((day) => day && typeof day === "object")
+              : [],
+          }))
+      : [],
+    resources: Array.isArray(raw.resources)
+      ? raw.resources.filter((item) => item && typeof item === "object")
+      : [],
+    created_at: raw.created_at ?? new Date().toISOString(),
+    version: Number(raw.version) || 1,
+    status: raw.status ?? "active",
+    reason: raw.reason ?? "initial",
+  };
+}
+
 export interface PlanVersion {
   plan_id: string;
   version: number;
@@ -351,28 +383,39 @@ export const plansApi = {
   generate: async (data: {
     goal_id: string;
     feasibility_result?: FeasibilityResponse;
-  }) => (await api.post<PlanResponse>("/api/plans/generate", data)).data,
+  }) =>
+    normalizePlan(
+      (await api.post<PlanResponse>("/api/plans/generate", data)).data
+    ),
   getById: async (id: string) =>
-    (await api.get<PlanResponse>(`/api/plans/${id}`)).data,
+    normalizePlan((await api.get<PlanResponse>(`/api/plans/${id}`)).data),
   getByGoal: async (goalId: string, version?: number) =>
-    (
-      await api.get<PlanResponse>(`/api/plans/by-goal/${goalId}`, {
-        params: version != null ? { version } : undefined,
-      })
-    ).data,
-  history: async (goalId: string) =>
-    (await api.get<PlanVersion[]>(`/api/plans/by-goal/${goalId}/history`)).data,
+    normalizePlan(
+      (
+        await api.get<PlanResponse>(`/api/plans/by-goal/${goalId}`, {
+          params: version != null ? { version } : undefined,
+        })
+      ).data
+    ),
+  history: async (goalId: string) => {
+    const data = (
+      await api.get<PlanVersion[]>(`/api/plans/by-goal/${goalId}/history`)
+    ).data;
+    return Array.isArray(data) ? data : [];
+  },
   // Lazy generation: minta jadwal 4 minggu berikutnya.
   generateNextMonth: async (
     planId: string,
     language: "en" | "id" | "zh" = "en"
   ) =>
-    (
-      await api.post<PlanResponse>(
-        `/api/plans/${planId}/generate-next-month`,
-        { language }
-      )
-    ).data,
+    normalizePlan(
+      (
+        await api.post<PlanResponse>(
+          `/api/plans/${planId}/generate-next-month`,
+          { language }
+        )
+      ).data
+    ),
   // Streaming generation: status → delta teks → plan final.
   generateStream: async (
     data: {
@@ -416,7 +459,8 @@ export const plansApi = {
       }
       if (event.type === "status" && event.stage) handlers.onStatus?.(event.stage);
       else if (event.type === "delta" && event.content) handlers.onDelta?.(event.content);
-      else if (event.type === "plan" && event.plan) handlers.onPlan?.(event.plan);
+      else if (event.type === "plan" && event.plan)
+        handlers.onPlan?.(normalizePlan(event.plan));
       else if (event.type === "error") {
         failure = event.message ?? "Plan generation failed.";
         handlers.onError?.(failure);

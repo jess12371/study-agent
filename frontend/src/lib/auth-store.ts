@@ -28,18 +28,26 @@ export const useAuthStore = create<AuthState>((set) => ({
   isHydrated: false,
 
   setAuth: (token, user) => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(TOKEN_KEY, token);
-      localStorage.setItem(USER_KEY, JSON.stringify(user));
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.setItem(TOKEN_KEY, token);
+        localStorage.setItem(USER_KEY, JSON.stringify(user));
+      }
+    } catch {
+      /* storage bisa diblokir (private mode / in-app browser) */
     }
     setAuthToken(token);
     set({ token, user, isAuthenticated: true, isHydrated: true });
   },
 
   logout: () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(USER_KEY);
+    try {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(TOKEN_KEY);
+        localStorage.removeItem(USER_KEY);
+      }
+    } catch {
+      /* abaikan */
     }
     setAuthToken(null);
     set({ token: null, user: null, isAuthenticated: false, isHydrated: true });
@@ -50,22 +58,32 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ isHydrated: true });
       return;
     }
-    const token = localStorage.getItem(TOKEN_KEY);
-    const rawUser = localStorage.getItem(USER_KEY);
-    let user: User | null = null;
-    if (rawUser) {
-      try {
-        user = JSON.parse(rawUser) as User;
-      } catch {
-        user = null;
+    try {
+      const token = localStorage.getItem(TOKEN_KEY);
+      const rawUser = localStorage.getItem(USER_KEY);
+      let user: User | null = null;
+      if (rawUser) {
+        try {
+          user = JSON.parse(rawUser) as User;
+        } catch {
+          user = null;
+        }
       }
+      setAuthToken(token);
+      set({
+        token,
+        user,
+        isAuthenticated: Boolean(token),
+        isHydrated: true,
+      });
+    } catch {
+      setAuthToken(null);
+      set({
+        token: null,
+        user: null,
+        isAuthenticated: false,
+        isHydrated: true,
+      });
     }
-    setAuthToken(token);
-    set({
-      token,
-      user,
-      isAuthenticated: Boolean(token),
-      isHydrated: true,
-    });
   },
 }));

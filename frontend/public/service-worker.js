@@ -4,7 +4,7 @@
 // PENTING: setiap cabang event.respondWith() HARUS selalu resolve ke Response
 // yang valid. Jangan pernah mengembalikan undefined (penyebab error
 // "Failed to convert value to 'Response'").
-const CACHE_NAME = "study-agent-v2";
+const CACHE_NAME = "study-agent-v3";
 const OFFLINE_URL = "/offline";
 const PRECACHE = [
   "/",
@@ -64,7 +64,17 @@ self.addEventListener("fetch", (event) => {
   // 3) Skip cross-origin (mis. fonts, CDN) — jangan diintercept.
   if (url.origin !== self.location.origin) return;
 
-  // 4) Navigation → network-first, fallback ke halaman offline.
+  // 4) Skip RSC / data router Next.js. Response-nya berubah tiap deployment;
+  //    kalau di-cache, client bisa memakai payload lama + chunk yang sudah hilang.
+  if (
+    request.headers.get("RSC") === "1" ||
+    url.searchParams.has("_rsc") ||
+    request.headers.get("Next-Router-Prefetch") === "1"
+  ) {
+    return;
+  }
+
+  // 5) Navigation → network-first, fallback ke halaman offline.
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
@@ -79,7 +89,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 5) Static assets → cache-first, selalu kembalikan Response valid.
+  // 6) Hanya cache asset statis yang aman (content-hashed / ikon / manifest).
+  const cacheable =
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname === "/manifest.json";
+
+  if (!cacheable) {
+    // Biarkan browser/HTTP cache menangani request lain (termasuk data fetch).
+    return;
+  }
+
+  // 7) Static assets → cache-first, selalu kembalikan Response valid.
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;

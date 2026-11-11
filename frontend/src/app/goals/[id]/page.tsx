@@ -54,6 +54,7 @@ import {
   getErrorMessage,
   goalsApi,
   isNetworkError,
+  normalizePlan,
   plansApi,
   progressApi,
   progressSessionKey,
@@ -151,7 +152,7 @@ function GoalDetail() {
         await cachePlan(goalId, existingPlan);
       } catch {
         const cachedPlan = await getCachedPlan(goalId);
-        if (cachedPlan) setPlan(cachedPlan);
+        if (cachedPlan) setPlan(normalizePlan(cachedPlan));
       }
       loadHistory();
     } catch (err) {
@@ -162,7 +163,7 @@ function GoalDetail() {
       ]);
       if (cachedGoal) {
         setGoal(cachedGoal);
-        if (cachedPlan) setPlan(cachedPlan);
+        if (cachedPlan) setPlan(normalizePlan(cachedPlan));
       } else {
         setError(getErrorMessage(err));
       }

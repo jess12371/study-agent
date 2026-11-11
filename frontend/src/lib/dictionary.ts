@@ -330,6 +330,10 @@ const en = {
   somethingWentWrong: "Something went wrong",
   loadFailed:
     "We couldn't load this content. Please try again.",
+  planLoadErrorTitle: "Couldn't open this study plan",
+  planLoadErrorDesc:
+    "Something went wrong while loading the plan. Try again. If it keeps happening, clear the app cache and reload.",
+  clearCacheReload: "Clear cache & reload",
 } as const;
 
 const id: Record<keyof typeof en, string> = {
@@ -657,6 +661,10 @@ const id: Record<keyof typeof en, string> = {
 
   somethingWentWrong: "Terjadi kesalahan",
   loadFailed: "Kami gagal memuat konten ini. Coba lagi.",
+  planLoadErrorTitle: "Gagal membuka rencana belajar ini",
+  planLoadErrorDesc:
+    "Terjadi kesalahan saat memuat rencana. Coba lagi. Jika masih terjadi, bersihkan cache aplikasi lalu muat ulang.",
+  clearCacheReload: "Bersihkan cache & muat ulang",
 };
 
 const zh: Record<keyof typeof en, string> = {
@@ -962,6 +970,10 @@ const zh: Record<keyof typeof en, string> = {
 
   somethingWentWrong: "出错了",
   loadFailed: "无法加载内容，请重试。",
+  planLoadErrorTitle: "无法打开此学习计划",
+  planLoadErrorDesc:
+    "加载计划时出错。请重试。如果问题持续，请清除应用缓存并重新加载。",
+  clearCacheReload: "清除缓存并重新加载",
 };
 
 export const dict = { en, id, zh } as const;

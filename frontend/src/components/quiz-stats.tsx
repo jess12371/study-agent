@@ -108,7 +108,7 @@ export function QuizStats() {
           <CardTitle className="text-base">{t("recentAttempts")}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {data.attempts.slice(0, 5).map((attempt) => {
+          {(data.attempts ?? []).slice(0, 5).map((attempt) => {
             const percentage = attempt.total_questions
               ? Math.round((attempt.score / attempt.total_questions) * 100)
               : 0;
